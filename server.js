@@ -733,7 +733,16 @@ app.post("/api/ai/chat", requireSameOrigin, aiChatLimiter, async (req, res) => {
       "Course context follows as JSON:",
       JSON.stringify(courseContext),
     ].join("\n\n");
-    const models = ["gemini-2.5-flash", "gemini-1.5-flash"];
+    const modelName = (process.env.GEMINI_MODEL || "gemini-1.5-flash").replace(
+      /^models\//,
+      "",
+    );
+    if (!/^[A-Za-z0-9._-]+$/.test(modelName)) {
+      throw new Error("GEMINI_MODEL must be a model identifier without a models/ prefix.");
+    }
+    const fallbackModel =
+      modelName === "gemini-1.5-flash" ? "gemini-2.5-flash" : "gemini-1.5-flash";
+    const models = [...new Set([modelName, fallbackModel])];
     let lastError;
 
     for (const model of models) {
