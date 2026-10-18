@@ -7,6 +7,15 @@
   const clone = value => JSON.parse(JSON.stringify(value));
   const esc = value => Security.escapeHTML(value);
   const icon = (name, cls = "h-4 w-4") => `<i data-lucide="${esc(name)}" class="${cls}" aria-hidden="true"></i>`;
+  const themeStorageKey = "cyb202_user_theme";
+  const themeNames = ["theme-emerald","theme-cyan","theme-violet","theme-amber","theme-rose"];
+  const themeColors = {
+    "theme-emerald":"#10b981",
+    "theme-cyan":"#06b6d4",
+    "theme-violet":"#8b5cf6",
+    "theme-amber":"#f59e0b",
+    "theme-rose":"#f43f5e"
+  };
   const nav = [
     ["focus","Today's focus","sun"], ["schedule","Full timetable","calendar-days"],
     ["reminders","Class reminders","bell"], ["reviews","Subject know-hows","book-open-check"],
@@ -34,6 +43,8 @@
   let stateRefreshBusy = false;
   let aiMessages = [];
   let aiBusy = false;
+  let selectedTheme = "theme-emerald";
+  let themeStorageWarningShown = false;
 
   function toast(message, kind = "success") {
     const element = document.createElement("div");
@@ -41,6 +52,48 @@
     element.textContent = message;
     $("#toast-mount").append(element);
     window.setTimeout(() => element.remove(), 4200);
+  }
+  function setThemeColor(color) {
+    const [red,green,blue]=color.slice(1).match(/.{2}/g).map(channel=>parseInt(channel,16));
+    const root=document.documentElement;
+    root.style.setProperty("--accent-primary",color);
+    root.style.setProperty("--accent-glow",`rgba(${red},${green},${blue},.2)`);
+    root.style.setProperty("--accent-surface",`rgba(${red},${green},${blue},.12)`);
+    root.style.setProperty("--text-accent",`#${[red,green,blue].map(channel=>Math.round(channel+(255-channel)*.58).toString(16).padStart(2,"0")).join("")}`);
+  }
+  function applyTheme(theme,persist=true) {
+    const isCustom=typeof theme==="string"&&/^custom:#[\da-f]{6}$/i.test(theme);
+    if(!themeNames.includes(theme)&&!isCustom)theme="theme-emerald";
+    const root=document.documentElement;
+    for(const name of themeNames)root.classList.remove(name);
+    for(const property of ["--accent-primary","--accent-glow","--accent-surface","--text-accent"])root.style.removeProperty(property);
+    if(isCustom)setThemeColor(theme.slice(7));
+    else root.classList.add(theme);
+    selectedTheme=theme;
+    const color=isCustom?theme.slice(7):themeColors[theme];
+    $("#custom-theme-color").value=color;
+    $$("[data-theme]").forEach(button=>button.setAttribute("aria-pressed",String(button.dataset.theme===theme)));
+    if(persist){
+      try{localStorage.setItem(themeStorageKey,theme);}
+      catch(error){
+        console.error("Theme preference could not be saved locally:",error);
+        if(!themeStorageWarningShown){toast("The theme changed for this visit, but browser storage prevented saving it.","warning");themeStorageWarningShown=true;}
+      }
+    }
+    $("#appearance-status").textContent=isCustom?"Custom accent color selected.":`${theme.replace("theme-","")} theme selected.`;
+  }
+  function loadThemePreference() {
+    try{
+      const saved=localStorage.getItem(themeStorageKey);
+      if(saved)applyTheme(saved,false);
+    }catch(error){
+      console.error("Theme preference could not be loaded locally:",error);
+      toast("Saved appearance preferences could not be read from browser storage.","warning");
+    }
+  }
+  function closeAppearancePanel() {
+    $("#appearance-panel").hidden=true;
+    $("#appearance-trigger").setAttribute("aria-expanded","false");
   }
   function refreshIcons(root = document) {
     if (window.lucide) window.lucide.createIcons({ root });
@@ -782,10 +835,20 @@
     const thinking=appendAiMessage("assistant","Thinking…");
     aiBusy=true;input.disabled=true;send.disabled=true;
     try{
-      const result=await Security.request("/api/ai/chat",{
+      const response=await fetch("/api/ai/chat",{
         method:"POST",
-        body:JSON.stringify({messages:aiMessages})
+        headers:{"Content-Type":"application/json"},
+        body:JSON.stringify({messages:aiMessages}),
+        credentials:"same-origin",
+        cache:"no-store",
+        redirect:"error"
       });
+      const result=await response.json();
+      if(!response.ok){
+        const error=new Error(result.details||result.error||`Request failed (${response.status}).`);
+        error.status=response.status;
+        throw error;
+      }
       if(typeof result?.answer!=="string"||!result.answer.trim())throw new Error("The AI service returned an empty response.");
       aiMessages.push({role:"assistant",text:result.answer});
       trimAiHistory();
@@ -800,6 +863,7 @@
     }
   }
   async function initialize() {
+    loadThemePreference();
     try{
       currentSession=await Security.refreshSession();
       const result=await Security.request("/api/state");
@@ -839,11 +903,24 @@
   });
   $("#ai-assistant-trigger").addEventListener("click",openAiAssistant);
   $("#ai-chat-close").addEventListener("click",closeAiAssistant);
+  $("#appearance-trigger").addEventListener("click",()=>{
+    const panel=$("#appearance-panel");
+    panel.hidden=!panel.hidden;
+    $("#appearance-trigger").setAttribute("aria-expanded",String(!panel.hidden));
+    if(!panel.hidden)$("#appearance-close").focus();
+  });
+  $("#appearance-close").addEventListener("click",()=>{
+    closeAppearancePanel();
+    $("#appearance-trigger").focus();
+  });
+  $$("[data-theme]").forEach(button=>button.addEventListener("click",()=>applyTheme(button.dataset.theme)));
+  $("#custom-theme-color").addEventListener("input",event=>applyTheme(`custom:${event.currentTarget.value}`));
   $("#ai-chat-form").addEventListener("submit",event=>{
     event.preventDefault();
     sendAiMessage($("#ai-chat-input").value);
   });
   document.addEventListener("click",event=>{
+    if(!event.target.closest("#appearance-panel")&&!event.target.closest("#appearance-trigger"))closeAppearancePanel();
     const prompt=event.target.closest("[data-ai-prompt]");
     if(prompt){openAiAssistant();$("#ai-chat-input").value=prompt.dataset.aiPrompt;sendAiMessage(prompt.dataset.aiPrompt);return;}
     const view=event.target.closest("[data-view]");
@@ -870,6 +947,7 @@
     if((event.ctrlKey||event.metaKey)&&event.key.toLowerCase()==="k"){event.preventDefault();openPalette();}
     if(event.key==="Escape"){
       closeModal();closePalette();
+      if(!$("#appearance-panel").hidden){closeAppearancePanel();$("#appearance-trigger").focus();}
       if(!$("#ai-chat").hidden)closeAiAssistant();
     }
   });

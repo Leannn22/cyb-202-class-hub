@@ -1,5 +1,5 @@
 <!doctype html>
-<html lang="en">
+<html lang="en" class="theme-emerald">
 <head>
   <meta charset="utf-8">
   <meta name="viewport" content="width=device-width, initial-scale=1">
@@ -33,6 +33,7 @@
           <div class="hidden lg:block text-right"><div id="clock-date" class="text-xs font-semibold"></div><div id="clock-time" class="text-[11px] text-slate-400"></div></div>
           <span id="class-status" class="class-status"><i data-lucide="radio" aria-hidden="true"></i><span>Checking class</span></span>
           <span id="connection-status" class="connection-badge" role="status">Connecting…</span>
+          <button id="appearance-trigger" class="icon-button" type="button" aria-label="Appearance and color preferences" aria-haspopup="dialog" aria-expanded="false" title="Appearance & Color Preferences"><i data-lucide="palette" aria-hidden="true"></i></button>
           <button id="search-trigger" class="icon-button" aria-label="Open spotlight search (Control or Command plus K)" title="Search · Ctrl K"><i data-lucide="search" aria-hidden="true"></i><kbd>⌘K</kbd></button>
           <button id="admin-trigger" class="role-badge" aria-haspopup="dialog"><i data-lucide="key-round" aria-hidden="true"></i><span id="role-label">Student View · Read-Only</span></button>
         </div>
@@ -46,6 +47,23 @@
         <button class="nav-tab admin-tab" role="tab" aria-controls="view-root" aria-selected="false" data-view="admin" id="tab-admin"><i data-lucide="settings-2" aria-hidden="true"></i>Admin portal</button>
       </nav>
     </div>
+    <section id="appearance-panel" class="appearance-panel glass" role="dialog" aria-modal="false" aria-labelledby="appearance-title" hidden>
+      <header class="appearance-header">
+        <div><h2 id="appearance-title">Appearance &amp; Color Preferences</h2><p>Only changes this browser</p></div>
+        <button id="appearance-close" class="icon-button" type="button" aria-label="Close appearance preferences"><i data-lucide="x" aria-hidden="true"></i></button>
+      </header>
+      <div class="theme-options" role="group" aria-label="Accent color presets">
+        <button class="theme-option" type="button" data-theme="theme-emerald" aria-pressed="true"><span class="theme-swatch emerald"></span><span>Cyber Emerald</span></button>
+        <button class="theme-option" type="button" data-theme="theme-cyan" aria-pressed="false"><span class="theme-swatch cyan"></span><span>Neon Cyan</span></button>
+        <button class="theme-option" type="button" data-theme="theme-violet" aria-pressed="false"><span class="theme-swatch violet"></span><span>Electric Amethyst</span></button>
+        <button class="theme-option" type="button" data-theme="theme-amber" aria-pressed="false"><span class="theme-swatch amber"></span><span>Warm Amber</span></button>
+        <button class="theme-option" type="button" data-theme="theme-rose" aria-pressed="false"><span class="theme-swatch rose"></span><span>Cyber Rose</span></button>
+      </div>
+      <label class="custom-color-label" for="custom-theme-color">Custom accent color
+        <input id="custom-theme-color" type="color" value="#10b981">
+      </label>
+      <p id="appearance-status" class="sr-only" role="status" aria-live="polite"></p>
+    </section>
   </header>
 
   <main id="main-content" class="mx-auto max-w-7xl px-4 py-6 md:px-8 md:py-9" tabindex="-1">
