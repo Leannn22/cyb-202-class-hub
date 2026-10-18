@@ -32,6 +32,8 @@
   let lastActivity = Date.now();
   let lastStateSync = Date.now();
   let stateRefreshBusy = false;
+  let aiMessages = [];
+  let aiBusy = false;
 
   function toast(message, kind = "success") {
     const element = document.createElement("div");
@@ -744,6 +746,59 @@
       if(error.status>=500||!error.status){setConnection(false);console.error("Shared class sync failed:",error);}
     }finally{stateRefreshBusy=false;}
   }
+  function appendAiMessage(role,text,extraClass="") {
+    const message=document.createElement("div");
+    message.className=`ai-message ${role}${extraClass?` ${extraClass}`:""}`;
+    message.textContent=text;
+    $("#ai-chat-messages").append(message);
+    $("#ai-chat-messages").scrollTop=$("#ai-chat-messages").scrollHeight;
+    return message;
+  }
+  function openAiAssistant() {
+    const panel=$("#ai-chat");
+    panel.hidden=false;
+    $("#ai-assistant-trigger").setAttribute("aria-expanded","true");
+    if(!$("#ai-chat-messages").childElementCount){
+      appendAiMessage("assistant","Hi! I can help you review CYB-202 topics, understand your course guides, and find your class schedule.");
+    }
+    $("#ai-chat-input").focus();
+  }
+  function closeAiAssistant() {
+    $("#ai-chat").hidden=true;
+    $("#ai-assistant-trigger").setAttribute("aria-expanded","false");
+    $("#ai-assistant-trigger").focus();
+  }
+  function trimAiHistory() {
+    while(aiMessages.length>12)aiMessages.shift();
+    if(aiMessages[0]?.role==="assistant")aiMessages.shift();
+  }
+  async function sendAiMessage(text) {
+    const question=text.trim();
+    if(!question||aiBusy)return;
+    aiMessages.push({role:"user",text:question});
+    trimAiHistory();
+    appendAiMessage("user",question);
+    const input=$("#ai-chat-input"),send=$("#ai-chat-send");
+    const thinking=appendAiMessage("assistant","Thinking…");
+    aiBusy=true;input.disabled=true;send.disabled=true;
+    try{
+      const result=await Security.request("/api/ai/chat",{
+        method:"POST",
+        body:JSON.stringify({messages:aiMessages})
+      });
+      if(typeof result?.answer!=="string"||!result.answer.trim())throw new Error("The AI service returned an empty response.");
+      aiMessages.push({role:"assistant",text:result.answer});
+      trimAiHistory();
+      thinking.textContent=result.answer;
+      $("#ai-chat-messages").scrollTop=$("#ai-chat-messages").scrollHeight;
+    }catch(error){
+      aiMessages.pop();
+      thinking.classList.add("error");
+      thinking.textContent=error.message||"The AI assistant could not answer. Please try again.";
+    }finally{
+      aiBusy=false;input.disabled=false;send.disabled=false;input.value="";input.focus();
+    }
+  }
   async function initialize() {
     try{
       currentSession=await Security.refreshSession();
@@ -759,6 +814,7 @@
     renderEmergency();
     renderActiveView();
     renderClock();
+    refreshIcons($("#ai-assistant"));
     window.setInterval(renderClock,1000);
     window.setInterval(syncState,30_000);
     window.setInterval(()=>{
@@ -781,7 +837,15 @@
     const next=(index+(event.key==="ArrowRight"?1:-1)+tabs.length)%tabs.length;
     tabs[next].focus();tabs[next].click();
   });
+  $("#ai-assistant-trigger").addEventListener("click",openAiAssistant);
+  $("#ai-chat-close").addEventListener("click",closeAiAssistant);
+  $("#ai-chat-form").addEventListener("submit",event=>{
+    event.preventDefault();
+    sendAiMessage($("#ai-chat-input").value);
+  });
   document.addEventListener("click",event=>{
+    const prompt=event.target.closest("[data-ai-prompt]");
+    if(prompt){openAiAssistant();$("#ai-chat-input").value=prompt.dataset.aiPrompt;sendAiMessage(prompt.dataset.aiPrompt);return;}
     const view=event.target.closest("[data-view]");
     if(view){switchView(view.dataset.view);return;}
     const filter=event.target.closest("[data-filter-reminders]");
@@ -804,7 +868,10 @@
   });
   document.addEventListener("keydown",event=>{
     if((event.ctrlKey||event.metaKey)&&event.key.toLowerCase()==="k"){event.preventDefault();openPalette();}
-    if(event.key==="Escape"){closeModal();closePalette();}
+    if(event.key==="Escape"){
+      closeModal();closePalette();
+      if(!$("#ai-chat").hidden)closeAiAssistant();
+    }
   });
   $("#search-trigger").addEventListener("click",openPalette);
   $("#import-file").addEventListener("change",event=>{
