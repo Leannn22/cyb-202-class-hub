@@ -632,11 +632,7 @@ app.post("/api/ai/chat", requireSameOrigin, aiChatLimiter, async (req, res) => {
   }
 
   const messages = req.body?.messages;
-  if (
-    !Array.isArray(messages) ||
-    messages.length < 1 ||
-    messages.length > 12
-  ) {
+  if (!Array.isArray(messages) || messages.length < 1 || messages.length > 12) {
     return res.status(400).json({
       error: "Send between 1 and 12 chat messages.",
     });
@@ -652,7 +648,8 @@ app.post("/api/ai/chat", requireSameOrigin, aiChatLimiter, async (req, res) => {
       message.text.length > 4000
     ) {
       return res.status(400).json({
-        error: "Each chat message must contain a role and text of at most 4,000 characters.",
+        error:
+          "Each chat message must contain a role and text of at most 4,000 characters.",
       });
     }
     history.push({
@@ -667,12 +664,13 @@ app.post("/api/ai/chat", requireSameOrigin, aiChatLimiter, async (req, res) => {
   }
   if (
     history[0].role !== "user" ||
-    history.some((message, index) =>
-      index > 0 && message.role === history[index - 1].role
+    history.some(
+      (message, index) => index > 0 && message.role === history[index - 1].role,
     )
   ) {
     return res.status(400).json({
-      error: "Chat history must alternate between student and assistant messages.",
+      error:
+        "Chat history must alternate between student and assistant messages.",
     });
   }
 
@@ -722,7 +720,9 @@ app.post("/api/ai/chat", requireSameOrigin, aiChatLimiter, async (req, res) => {
           summary: summary.slice(0, 1200),
           topics: topics.slice(0, 12).map((topic) => topic.slice(0, 160)),
           formulas: formulas.slice(0, 800),
-          snippets: snippets.slice(0, 3).map((snippet) => snippet.slice(0, 800)),
+          snippets: snippets
+            .slice(0, 3)
+            .map((snippet) => snippet.slice(0, 800)),
         })),
     };
     const systemPrompt = [
@@ -733,15 +733,19 @@ app.post("/api/ai/chat", requireSameOrigin, aiChatLimiter, async (req, res) => {
       "Course context follows as JSON:",
       JSON.stringify(courseContext),
     ].join("\n\n");
-    const modelName = (process.env.GEMINI_MODEL || "gemini-1.5-flash").replace(
+    const modelName = (process.env.GEMINI_MODEL || "gemini-3.8-flash").replace(
       /^models\//,
       "",
     );
     if (!/^[A-Za-z0-9._-]+$/.test(modelName)) {
-      throw new Error("GEMINI_MODEL must be a model identifier without a models/ prefix.");
+      throw new Error(
+        "GEMINI_MODEL must be a model identifier without a models/ prefix.",
+      );
     }
     const fallbackModel =
-      modelName === "gemini-1.5-flash" ? "gemini-2.5-flash" : "gemini-1.5-flash";
+      modelName === "gemini-3.8-flash"
+        ? "gemini-2.5-flash"
+        : "gemini-3.8-flash";
     const models = [...new Set([modelName, fallbackModel])];
     let lastError;
 
