@@ -1,0 +1,21 @@
+{
+  "name": "cyb-202-semester-command-center",
+  "version": "1.0.0",
+  "private": true,
+  "description": "Shared CYB-202 class hub with server-enforced administrator access.",
+  "engines": {
+    "node": ">=20.12"
+  },
+  "scripts": {
+    "start": "node server.js",
+    "setup:admins": "node setup-admins.js"
+  },
+  "dependencies": {
+    "better-sqlite3": "^11.10.0",
+    "connect-sqlite3": "^0.9.16",
+    "express": "^5.1.0",
+    "express-rate-limit": "^7.5.0",
+    "express-session": "^1.18.2",
+    "helmet": "^8.1.0"
+  }
+}

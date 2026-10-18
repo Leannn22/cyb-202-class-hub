@@ -1,0 +1,71 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <meta name="theme-color" content="#0f172a">
+  <meta name="description" content="The CYB-202 class command center for Holy Angel University.">
+  <title>CYB-202 · Semester Command Center</title>
+  <script src="https://cdn.tailwindcss.com"></script>
+  <script>
+    tailwind.config = { theme: { extend: {
+      colors: { cyber:{ ink:"#0f172a", panel:"#142136", mint:"#10b981", cyan:"#06b6d4", violet:"#a78bfa" } },
+      fontFamily: { sans:["Inter","ui-sans-serif","system-ui","sans-serif"] }
+    } } };
+  </script>
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&display=swap" rel="stylesheet">
+  <link rel="stylesheet" href="styles.css">
+</head>
+<body class="min-h-screen">
+  <a class="skip-link" href="#main-content">Skip to content</a>
+  <div id="emergency-banner" class="emergency-banner hidden" role="alert" aria-live="assertive"></div>
+
+  <header class="topbar sticky top-0 z-30">
+    <div class="mx-auto max-w-7xl px-4 md:px-8">
+      <div class="flex min-h-[76px] items-center justify-between gap-3">
+        <a class="brand flex items-center gap-3 shrink-0" href="/" aria-label="CYB-202 command center home">
+          <span class="brand-mark"><i data-lucide="shield-check" aria-hidden="true"></i></span>
+          <span><strong>CYB<span>·</span>202</strong><small>Semester command center</small></span>
+        </a>
+        <div class="flex min-w-0 items-center justify-end gap-2 md:gap-3">
+          <div class="hidden lg:block text-right"><div id="clock-date" class="text-xs font-semibold"></div><div id="clock-time" class="text-[11px] text-slate-400"></div></div>
+          <span id="class-status" class="class-status"><i data-lucide="radio" aria-hidden="true"></i><span>Checking class</span></span>
+          <span id="connection-status" class="connection-badge" role="status">Connecting…</span>
+          <button id="search-trigger" class="icon-button" aria-label="Open spotlight search (Control or Command plus K)" title="Search · Ctrl K"><i data-lucide="search" aria-hidden="true"></i><kbd>⌘K</kbd></button>
+          <button id="admin-trigger" class="role-badge" aria-haspopup="dialog"><i data-lucide="key-round" aria-hidden="true"></i><span id="role-label">Student View · Read-Only</span></button>
+        </div>
+      </div>
+      <nav id="primary-nav" class="primary-nav" aria-label="Main sections" role="tablist">
+        <button class="nav-tab active" role="tab" aria-controls="view-root" aria-selected="true" data-view="focus" id="tab-focus"><i data-lucide="sun" aria-hidden="true"></i>Today's focus</button>
+        <button class="nav-tab" role="tab" aria-controls="view-root" aria-selected="false" data-view="schedule" id="tab-schedule"><i data-lucide="calendar-days" aria-hidden="true"></i>Full timetable</button>
+        <button class="nav-tab" role="tab" aria-controls="view-root" aria-selected="false" data-view="reminders" id="tab-reminders"><i data-lucide="bell" aria-hidden="true"></i>Class reminders</button>
+        <button class="nav-tab" role="tab" aria-controls="view-root" aria-selected="false" data-view="reviews" id="tab-reviews"><i data-lucide="book-open-check" aria-hidden="true"></i>Subject know-hows</button>
+        <button class="nav-tab" role="tab" aria-controls="view-root" aria-selected="false" data-view="terminal" id="tab-terminal"><i data-lucide="terminal-square" aria-hidden="true"></i>Cyber terminal</button>
+        <button class="nav-tab admin-tab" role="tab" aria-controls="view-root" aria-selected="false" data-view="admin" id="tab-admin"><i data-lucide="settings-2" aria-hidden="true"></i>Admin portal</button>
+      </nav>
+    </div>
+  </header>
+
+  <main id="main-content" class="mx-auto max-w-7xl px-4 py-6 md:px-8 md:py-9" tabindex="-1">
+    <div id="offline-notice" class="offline-notice hidden" role="status"></div>
+    <div id="view-root" role="tabpanel" aria-labelledby="tab-focus" tabindex="0" aria-live="polite"></div>
+  </main>
+
+  <footer class="mx-auto max-w-7xl px-4 pb-8 text-center text-xs text-slate-500 md:px-8">
+    CYB-202 · Holy Angel University <span class="px-1 text-emerald-400">·</span> Confirm official dates with your instructors.
+  </footer>
+
+  <div id="modal-mount"></div>
+  <div id="palette-mount"></div>
+  <div id="toast-mount" class="fixed bottom-4 right-4 z-[100] space-y-2" aria-live="polite"></div>
+  <input id="import-file" type="file" accept="application/json,.json" hidden>
+
+  <script src="https://unpkg.com/dompurify@3.2.6/dist/purify.min.js" defer></script>
+  <script src="https://unpkg.com/lucide@latest" defer></script>
+  <script src="data.js" defer></script>
+  <script src="security.js" defer></script>
+  <script src="app.js" defer></script>
+</body>
+</html>
