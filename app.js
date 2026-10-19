@@ -161,37 +161,43 @@
     notice.classList.toggle("hidden", online);
     notice.textContent = message || "The shared class server is unavailable. You're viewing the seed timetable; shared edits and updates are disabled.";
   }
-  function setAiPersona(isAdmin) {
-    const nextPersona=isAdmin?"admin":"student";
-    if(aiPersona===nextPersona)return;
+  function syncAiWidgetPersona(authenticated) {
+    const nextPersona=authenticated?"admin":"student";
+    const personaChanged=aiPersona!==nextPersona;
     aiPersona=nextPersona;
-    const copy=isAdmin?{
-      title:"Ai-Ai delas Alas (Admin Assistant)",
-      subtitle:"Drafting & Admin Helper",
-      placeholder:"Ask Ai-Ai to draft a reminder, schedule override, or reviewer note...",
-      triggerLabel:"Open Ai-Ai delas Alas, the admin drafting assistant",
-      closeLabel:"Close Ai-Ai delas Alas",
-      inputLabel:"Ask Ai-Ai to draft an admin update",
-      disclaimer:"Ai-Ai creates drafts only. Review and edit every draft in the Admin Portal before saving."
-    }:{
-      title:"BETTIE",
-      subtitle:"Read-only study help for CYB-202",
-      placeholder:"Ask a CYB-202 study question…",
-      triggerLabel:"Open BETTIE, the CYB-202 study assistant",
-      closeLabel:"Close BETTIE",
-      inputLabel:"Ask BETTIE, the CYB-202 study assistant",
-      disclaimer:"BETTIE is read-only and can be inaccurate. Verify course details with your instructor."
-    };
-    $("#ai-chat-title").textContent=copy.title;
-    $("#ai-chat-subtitle").textContent=copy.subtitle;
-    $("#ai-chat-input").placeholder=copy.placeholder;
-    $("#ai-assistant-trigger").setAttribute("aria-label",copy.triggerLabel);
-    $("#ai-chat-close").setAttribute("aria-label",copy.closeLabel);
-    $('label[for="ai-chat-input"]').textContent=copy.inputLabel;
-    $("#ai-disclaimer").textContent=copy.disclaimer;
-    $("#ai-quick-prompts").hidden=isAdmin;
-    $("#ai-quick-prompts").classList.toggle("hidden",isAdmin);
-    if(aiRequestController){
+    const titleEl=document.getElementById("ai-widget-title");
+    const subtitleEl=document.getElementById("ai-widget-subtitle");
+    const inputEl=document.getElementById("ai-chat-input");
+    const footerEl=document.getElementById("ai-widget-footer");
+    if(authenticated){
+      if(titleEl)titleEl.textContent="Ai-Ai delas Alas";
+      if(subtitleEl)subtitleEl.textContent="Admin Drafting & Structuring Assistant";
+      if(inputEl)inputEl.placeholder="Ask Ai-Ai to draft a reminder, schedule override, or reviewer note...";
+      if(footerEl)footerEl.textContent="Ai-Ai helps admins draft content safely. Changes require manual approval.";
+    }else{
+      if(titleEl)titleEl.textContent="BETTIE";
+      if(subtitleEl)subtitleEl.textContent="Read-only study help for CYB-202";
+      if(inputEl)inputEl.placeholder="Ask a CYB-202 study question...";
+      if(footerEl)footerEl.textContent="BETTIE is read-only and can be inaccurate. Verify course details with your instructor.";
+    }
+    const widget=$("#ai-assistant");
+    widget.dataset.persona=nextPersona;
+    const avatarIcon=authenticated?"file-pen-line":"sparkles";
+    $$("#ai-assistant-trigger [data-lucide], #ai-chat .ai-chat-icon [data-lucide]").forEach(element=>{
+      element.setAttribute("data-lucide",avatarIcon);
+    });
+    refreshIcons(widget);
+    const trigger=$("#ai-assistant-trigger");
+    trigger.setAttribute("aria-label",authenticated
+      ?"Open Ai-Ai delas Alas, the admin drafting assistant"
+      :"Open BETTIE, the CYB-202 study assistant");
+    $("#ai-chat-close").setAttribute("aria-label",authenticated?"Close Ai-Ai delas Alas":"Close BETTIE");
+    $('label[for="ai-chat-input"]').textContent=authenticated
+      ?"Ask Ai-Ai to draft an admin update"
+      :"Ask BETTIE, the CYB-202 study assistant";
+    $("#ai-quick-prompts").hidden=authenticated;
+    $("#ai-quick-prompts").classList.toggle("hidden",authenticated);
+    if(personaChanged&&aiRequestController){
       aiRequestController.abort();
       aiRequestController=null;
       aiBusy=false;
@@ -203,9 +209,11 @@
       send.innerHTML=icon("send");
       refreshIcons(send);
     }
-    aiMessages=[];
-    $("#ai-chat-messages").replaceChildren();
-    if(!$("#ai-chat").hidden)appendAiMessage("assistant",isAdmin
+    if(personaChanged){
+      aiMessages=[];
+      $("#ai-chat-messages").replaceChildren();
+    }
+    if(personaChanged&&!$("#ai-chat").hidden)appendAiMessage("assistant",authenticated
       ?"Hi! I’m Ai-Ai delas Alas, your administrator drafting helper. Send a request to prepare a reminder, schedule override, or reviewer note for review in the Admin Portal."
       :"Hi! I’m BETTIE, your read-only CYB-202 study assistant. I can help with your timetable, reminders, subject know-hows, and Cyber Terminal references.");
   }
@@ -217,7 +225,7 @@
     button.classList.toggle("authorized", isAdmin);
     button.setAttribute("aria-label", isAdmin ? `Admin view authorized for ${currentSession.adminName}; click to sign out` : "Student view, read only; click to sign in as an administrator");
     $("#tab-admin").classList.toggle("admin-active", isAdmin);
-    setAiPersona(isAdmin);
+    syncAiWidgetPersona(isAdmin);
   }
   function renderNavigation() {
     $("#view-root").setAttribute("aria-labelledby",`tab-${activeView}`);
@@ -624,6 +632,7 @@
       try {
         currentSession=await Security.login(String(form.get("adminId")),password);
         $("#admin-password").value="";
+        syncAiWidgetPersona(true);
         setRoleIndicator();
         renderActiveView();
         toast(`Admin session authorized for ${currentSession.adminName}.`);
@@ -642,6 +651,7 @@
     try { await Security.logout(); }
     catch(error) { console.error("Server logout failed:",error); }
     currentSession={authenticated:false};
+    syncAiWidgetPersona(false);
     setRoleIndicator();
     renderActiveView();
     toast("Signed out. Shared class data is read-only.");
@@ -1137,12 +1147,14 @@
     loadThemePreference();
     try{
       currentSession=await Security.refreshSession();
+      syncAiWidgetPersona(Security.isAdminAuthenticated());
       const result=await Security.request("/api/state");
       state=clone(Security.validateClassState(result.state));revision=result.revision;lastStateSync=Date.now();
       setConnection(true);
     }catch(error){
       setConnection(false,error.message.includes("fetch")?"Could not reach the CYB-202 server. Run `npm start` and open http://localhost:3000. Shared edits are unavailable.":"The CYB-202 server could not be reached. Shared editing is unavailable.");
       console.error("Initial class data load failed:",error);
+      syncAiWidgetPersona(Security.isAdminAuthenticated());
     }
     setRoleIndicator();
     renderNavigation();
