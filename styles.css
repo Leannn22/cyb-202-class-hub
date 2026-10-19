@@ -90,11 +90,13 @@ select.field option { color: #e2e8f0; background: #111c2d; }
 .tag-medium { color: #fde68a; background: rgba(251,191,36,.1); border-color: rgba(251,191,36,.2); }
 .tag-quiz { color: #fbbf24; background: rgba(245,158,11,.1); border-color: rgba(245,158,11,.3); box-shadow: 0 0 14px rgba(245,158,11,.12); }
 .tag-exam { color: #fdba74; background: rgba(234,88,12,.1); border-color: rgba(249,115,22,.3); box-shadow: 0 0 14px rgba(249,115,22,.12); }
-.tag-quarterly-exam { color: #c4b5fd; background: rgba(168,85,247,.1); border-color: rgba(168,85,247,.3); box-shadow: 0 0 14px rgba(168,85,247,.14); }
 .tag-assignment { color: #67e8f9; background: rgba(6,182,212,.1); border-color: rgba(6,182,212,.3); box-shadow: 0 0 14px rgba(6,182,212,.12); }
 .tag-project { color: #fda4af; background: rgba(244,63,94,.1); border-color: rgba(244,63,94,.3); box-shadow: 0 0 14px rgba(244,63,94,.12); }
 .tag-general { color: #cbd5e1; background: rgba(100,116,139,.12); border-color: rgba(148,163,184,.24); }
 .tag-low { color: var(--text-accent); background: var(--accent-surface); border-color: var(--accent-glow); }
+.reminder-date-controls { display: flex; flex-wrap: wrap; align-items: end; gap: .65rem; }
+.reminder-date-controls label { width: min(100%, 17rem); }
+.reminder-date-controls .field { margin-top: .35rem; }
 .metric-value { font-variant-numeric: tabular-nums; letter-spacing: -.06em; }
 .progress-track { height: .42rem; overflow: hidden; border-radius: 999px; background: rgba(148,163,184,.14); }
 .progress-bar { height: 100%; border-radius: inherit; background: linear-gradient(90deg,var(--accent-primary),var(--text-accent)); transition: width .28s ease; }

@@ -3,7 +3,7 @@
 const fs = require("node:fs");
 const path = require("node:path");
 const Database = require("better-sqlite3");
-const { defaultState } = require("./data.js");
+const { defaultState, reminderCategories } = require("./data.js");
 
 const dbPath = path.resolve(process.env.DB_PATH || path.join(__dirname, "data", "cyb202.sqlite"));
 fs.mkdirSync(path.dirname(dbPath), { recursive:true });
@@ -41,9 +41,8 @@ db.transaction(() => {
   const state = JSON.parse(row.payload);
   let changed = false;
   for (const reminder of state.reminders) {
-    if (reminder.category === "Critical") {
+    if (!reminderCategories.includes(reminder.category)) {
       reminder.category = "General";
-      reminder.priority = "High";
       changed = true;
     }
   }

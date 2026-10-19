@@ -70,6 +70,14 @@
     <div id="offline-notice" class="offline-notice hidden" role="status"></div>
     <div id="view-root" role="tabpanel" aria-labelledby="tab-focus" tabindex="0" aria-live="polite"></div>
   </main>
+  <template id="reminder-date-filter-template">
+    <div class="reminder-date-controls">
+      <label class="field-label" for="reminder-date-filter">Filter by due date
+        <input type="date" id="reminder-date-filter" class="field">
+      </label>
+      <button type="button" class="btn" data-reminder-date-clear hidden>Clear Date Filter</button>
+    </div>
+  </template>
 
   <footer class="mx-auto max-w-7xl px-4 pb-8 text-center text-xs text-slate-500 md:px-8">
     CYB-202 · Holy Angel University <span class="px-1 text-emerald-400">·</span> Confirm official dates with your instructors.

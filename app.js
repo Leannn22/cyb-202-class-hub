@@ -27,6 +27,7 @@
   let revision = null;
   let activeView = "focus";
   let reminderFilter = "All";
+  let reminderDateFilter = "";
   let adminTab = "reminders";
   let currentSession = { authenticated:false };
   let apiOnline = false;
@@ -138,7 +139,6 @@
   function categoryTag(category) {
     const css = {
       "Quiz":"tag-quiz",
-      "Quarterly Exam":"tag-quarterly-exam",
       "Exam":"tag-exam",
       "Assignment":"tag-assignment",
       "Project":"tag-project"
@@ -180,7 +180,7 @@
       if(titleEl)titleEl.textContent="Ai-Ai delas Alas";
       if(subtitleEl)subtitleEl.textContent="Admin Drafting & Form Assistant";
       if(inputEl)inputEl.placeholder="Ask Ai-Ai to draft a quiz, exam, assignment, or schedule change...";
-      if(footerEl)footerEl.textContent="Ai-Ai helps admins draft content safely. Changes require manual approval.";
+      if(footerEl)footerEl.textContent="Ai-Ai assists admins with form drafting. Manual review required.";
     }else{
       if(titleEl)titleEl.textContent="BETTIE";
       if(subtitleEl)subtitleEl.textContent="Read-only study help for CYB-202";
@@ -384,7 +384,12 @@
   function filteredReminders() {
     return state.reminders.filter(item=>{
       if (reminderFilter === "Urgent") return item.priority === "High";
-      if (reminderFilter !== "All") return item.category === reminderFilter;
+      if (reminderFilter !== "All" && item.category !== reminderFilter) return false;
+      if (reminderDateFilter) {
+        if (!item.dueAt) return false;
+        const due = new Date(item.dueAt);
+        if (Number.isNaN(due.getTime()) || dayDateKey(due) !== reminderDateFilter) return false;
+      }
       return true;
     }).slice().sort((a,b)=>Number(b.pinned)-Number(a.pinned) || dueSort(a,b));
   }
@@ -395,8 +400,15 @@
   }
   function renderReminders() {
     const filters=["All",...CYB202_DATA.reminderCategories,"Urgent"];
+    const dateFilterTemplate=$("#reminder-date-filter-template");
+    const dateControls=dateFilterTemplate.innerHTML
+      .replace('id="reminder-date-filter"',`id="reminder-date-filter" value="${esc(reminderDateFilter)}"`)
+      .replace("data-reminder-date-clear hidden",`data-reminder-date-clear${reminderDateFilter?"":" hidden"}`);
     return `${viewHeading("Section-wide announcements","Class reminders","Shared notices, exam coverage, assignment deadlines, and important links. Changes require an authenticated class administrator.",Security.isAdminAuthenticated()?`<button class="btn btn-primary" data-action="new-reminder">${icon("plus")} New reminder</button>`:"")}
-      <div class="mb-4 flex flex-wrap gap-2">${filters.map(filter=>`<button class="btn ${reminderFilter===filter?"btn-primary":""}" data-filter-reminders="${esc(filter)}" aria-pressed="${reminderFilter===filter}">${filter==="Urgent"?icon("triangle-alert"):filter==="All"?icon("list-filter"):icon("tag")} ${esc(filter)}</button>`).join("")}</div>
+      <div class="mb-4 flex flex-col gap-3">
+        <div class="flex flex-wrap gap-2">${filters.map(filter=>`<button class="btn ${reminderFilter===filter?"btn-primary":""}" data-filter-reminders="${esc(filter)}" aria-pressed="${reminderFilter===filter}">${filter==="Urgent"?icon("triangle-alert"):filter==="All"?icon("list-filter"):icon("tag")} ${esc(filter)}</button>`).join("")}</div>
+        ${dateControls}
+      </div>
       <div id="reminder-list" class="grid gap-3 lg:grid-cols-2">${filteredReminders().map(item=>reminderCard(item)).join("")||`<div class="empty-state lg:col-span-2">No reminders in this filter.</div>`}</div>`;
   }
   function renderReviews() {
@@ -1124,6 +1136,11 @@
       date.setHours(23,59,0,0);
       return date.toISOString();
     }
+    if(/\bin 3 days\b/i.test(text)){
+      date.setDate(date.getDate()+3);
+      date.setHours(23,59,0,0);
+      return date.toISOString();
+    }
     if(/\bthis friday\b/i.test(text)){
       date.setDate(date.getDate()+((5-date.getDay()+7)%7||7));
       date.setHours(23,59,0,0);
@@ -1133,8 +1150,13 @@
   }
   function reminderDueSuggestion(choice) {
     const date=new Date();
-    if(choice==="Tomorrow 11:59 PM"){
+    if(choice==="Tomorrow"){
       date.setDate(date.getDate()+1);
+      date.setHours(23,59,0,0);
+      return date.toISOString();
+    }
+    if(choice==="In 3 Days"){
+      date.setDate(date.getDate()+3);
       date.setHours(23,59,0,0);
       return date.toISOString();
     }
@@ -1174,16 +1196,16 @@
           <div><span>Priority</span><strong>${esc(draft.priority)}</strong></div>
           <div><span>Pin state</span><strong>${draft.pinned?"Pinned":"Normal notice"}</strong></div>
           <p>${esc(draft.description)}</p>
-          <button class="btn ai-apply-draft" type="button" data-action="apply-ai-reminder-draft">Apply Draft to Admin Form</button>
+          <button class="btn ai-apply-draft" type="button" data-action="apply-ai-reminder-draft">Populate Admin Form</button>
         </div>`;
       return;
     }
     const choices={
       subject:["6ITN","6DASALGO","6IMAN","6DWEB","4READPHILHIS","2PROBSTAT","THEOLOGY103","7TPE4","ALL"],
       category:CYB202_DATA.reminderCategories,
-      dueAt:["Tomorrow 11:59 PM","Next Class","This Friday","Select Custom Date"],
+      dueAt:["Tomorrow","In 3 Days","This Friday","Pick Date"],
       priority:["High","Medium","Low"],
-      pinned:["Pin to Top","Normal Notice"]
+      pinned:["Pin Notice","Normal"]
     };
     const groupHtml=missing.map(([field,label])=>{
       const buttons=choices[field].map(value=>{
@@ -1199,12 +1221,12 @@
     if(!Security.isAdminAuthenticated()||!aiReminderDraft)return;
     const field=button.dataset.aiChoiceField;
     const choice=button.dataset.aiChoiceValue;
-    if(field==="dueAt"&&choice==="Select Custom Date"){
+    if(field==="dueAt"&&choice==="Pick Date"){
       aiReminderDraft.customDateVisible=true;
     }else if(field==="dueAt"){
       aiReminderDraft.dueAt=reminderDueSuggestion(choice);
     }else if(field==="pinned"){
-      aiReminderDraft.pinned=choice==="Pin to Top";
+      aiReminderDraft.pinned=choice==="Pin Notice";
     }else if(field==="subject"&&(choice==="ALL"||state.subjects.some(subject=>subject.code===choice))){
       aiReminderDraft.subject=choice;
     }else if(field==="category"&&CYB202_DATA.reminderCategories.includes(choice)){
@@ -1255,7 +1277,7 @@
     const question=text.trim();
     if(!question||aiBusy)return;
     if(Security.isAdminAuthenticated()){
-      if(/\b(add|create|draft|write|post|make)\b/i.test(question)&&/\b(reminder|quiz|quarterly exam|exam|assignment|project|general notice|class notice)\b/i.test(question)){
+      if(/\b(add|create|draft|write|post|make)\b/i.test(question)&&/\b(reminder|quiz|exam|assignment|project|general notice|class notice)\b/i.test(question)){
         aiReminderDraft=reminderDraftFromPrompt(question);
         appendAiMessage("user",question);
         $("#ai-chat-input").value="";
@@ -1378,6 +1400,11 @@
   });
   document.addEventListener("click",event=>{
     if(!event.target.closest("#appearance-panel")&&!event.target.closest("#appearance-trigger"))closeAppearancePanel();
+    if(event.target.closest("[data-reminder-date-clear]")){
+      reminderDateFilter="";
+      if(activeView==="reminders")renderActiveView();
+      return;
+    }
     const aiChoice=event.target.closest("[data-ai-choice-field]");
     if(aiChoice){handleAiDraftChoice(aiChoice);return;}
     const aiAction=event.target.closest("[data-ai-action]");
@@ -1396,6 +1423,12 @@
     if(paletteButton){const item=searchResults[Number(paletteButton.dataset.paletteIndex)];if(item){closePalette();switchView(item.view);}return;}
     const adminButton=event.target.closest("#admin-trigger");
     if(adminButton){if(Security.isAdminAuthenticated())confirmModal("Sign out of admin view?","Signing out makes all shared class content read-only on this device.",logout,"Sign out");else loginModal();}
+  });
+  document.addEventListener("change",event=>{
+    if(event.target.id==="reminder-date-filter"){
+      reminderDateFilter=event.target.value;
+      renderActiveView();
+    }
   });
   document.addEventListener("submit",handleFormSubmit);
   document.addEventListener("click",event=>{
