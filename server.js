@@ -554,7 +554,7 @@ function validateState(input) {
     ["active", "message", "updatedAt"],
     "Emergency banner",
   );
-  requireText(state.emergencyBanner, "message", 2000);
+  requireText(state.emergencyBanner, "message", 2000, true);
   requireText(state.emergencyBanner, "updatedAt", 100);
   if (state.emergencyBanner.active && !state.emergencyBanner.message)
     throw stateError("An active emergency banner needs a message.");
