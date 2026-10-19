@@ -8,6 +8,7 @@
   const esc = value => Security.escapeHTML(value);
   const icon = (name, cls = "h-4 w-4") => `<i data-lucide="${esc(name)}" class="${cls}" aria-hidden="true"></i>`;
   const themeStorageKey = "cyb202_user_theme";
+  const dismissedBannerKey = "cyb202_dismissed_banner";
   const themeNames = ["theme-emerald","theme-cyan","theme-violet","theme-amber","theme-rose"];
   const themeColors = {
     "theme-emerald":"#10b981",
@@ -350,7 +351,7 @@
     if (!Security.isAdminAuthenticated()) {
       return `${viewHeading("Administrator access","Admin command portal","Shared class changes are protected by server-side authentication. Students can browse this hub without signing in.")}<section class="panel-card mx-auto max-w-2xl p-6 md:p-8"><div class="flex h-12 w-12 items-center justify-center rounded-2xl bg-violet-400/10 text-violet-200">${icon("shield-lock","h-6 w-6")}</div><h2 class="mt-4 text-xl font-bold">Administrator sign-in required</h2><p class="mt-2 text-sm leading-relaxed text-slate-400">Authorized admins: Leander Dwayne Darell S. Guina, Class Representative, and Class Vice President. Credentials are set through the private server setup command; passphrases and password hashes are never sent to the browser.</p><button class="btn btn-primary mt-5" data-action="login">${icon("key-round")} Sign in securely</button></section>`;
     }
-    const tabs = [["reminders","Reminders"],["schedule","Schedule changes"],["reviews","Review guides"],["banner","Emergency banner"],["backup","Backup & reset"]];
+    const tabs = [["reminders","Reminders"],["schedule","Schedule changes"],["reviews","Review guides"],["banner","Emergency banner"],["ai","Ai-Ai delas Alas"],["backup","Backup & reset"]];
     return `${viewHeading("Admin View · Authorized","Admin command portal","Publish updates to the whole section. Every change is validated and saved to shared server storage.",`<button class="btn" data-action="logout">${icon("log-out")} Sign out</button>`)}
       <div class="mb-4 flex gap-2 overflow-x-auto pb-1">${tabs.map(([id,label])=>`<button class="btn whitespace-nowrap ${id===adminTab?"btn-primary":""}" data-admin-tab="${id}" aria-pressed="${id===adminTab}">${esc(label)}</button>`).join("")}</div>
       <section class="panel-card p-4 md:p-5">${renderAdminTab()}</section>`;
@@ -360,13 +361,22 @@
     if (adminTab === "schedule") return `<div class="mb-4 flex items-center justify-between gap-3"><div><h2 class="text-lg font-bold">Temporary schedule changes</h2><p class="text-xs text-slate-400">Post a dated room change, online shift, absence, or cancellation. The base timetable remains intact.</p></div><button class="btn btn-primary" data-action="new-override">${icon("plus")} Add override</button></div><div class="mb-4 flex flex-wrap items-center justify-between gap-2"><span class="text-xs text-slate-400">${state.scheduleOverrides.length} active record(s)</span><button class="btn btn-danger" data-action="reset-overrides">${icon("rotate-ccw")} Reset to official timetable</button></div><div class="space-y-2">${state.scheduleOverrides.map(item=>`<article class="flex flex-wrap items-start justify-between gap-3 rounded-xl border border-slate-700/40 p-3"><div><span class="tag">${esc(item.date)}</span><span class="tag ml-1">${esc(item.status)}</span><h3 class="mt-2 text-sm font-semibold">${esc(item.scheduleId==="*"?"All classes":state.schedule.find(s=>s.id===item.scheduleId)?.title||"Removed class")}</h3><p class="mt-1 text-xs text-slate-400">${esc(item.room)} ${esc(item.message)}</p></div><div class="flex gap-2"><button class="btn !p-2" data-action="edit-override" data-id="${esc(item.id)}" aria-label="Edit override">${icon("pencil")}</button><button class="btn btn-danger !p-2" data-action="delete-override" data-id="${esc(item.id)}" aria-label="Delete override">${icon("trash-2")}</button></div></article>`).join("")||`<div class="empty-state">No temporary schedule changes.</div>`}</div>`;
     if (adminTab === "reviews") return `<div class="mb-4 flex items-center justify-between gap-3"><div><h2 class="text-lg font-bold">Subject know-hows</h2><p class="text-xs text-slate-400">Maintain section lecture summaries, formulas, topics, and snippets.</p></div><button class="btn btn-primary" data-action="new-review">${icon("plus")} Add guide</button></div><div class="space-y-2">${state.reviews.map(item=>`<article class="flex flex-wrap items-center justify-between gap-2 rounded-xl border border-slate-700/40 p-3"><div><div class="eyebrow">${esc(item.subject)}</div><div class="mt-1 text-sm font-semibold">${esc(item.title)}</div></div><div class="flex gap-2"><button class="btn" data-action="edit-review" data-id="${esc(item.id)}">${icon("pencil")} Edit</button><button class="btn btn-danger !p-2" data-action="delete-review" data-id="${esc(item.id)}" aria-label="Delete guide">${icon("trash-2")}</button></div></article>`).join("")}</div>`;
     if (adminTab === "banner") return `<div class="max-w-2xl"><div class="eyebrow">Emergency broadcast</div><h2 class="mt-1 text-lg font-bold">Section-wide alert banner</h2><p class="mt-2 text-xs leading-relaxed text-slate-400">Reserve for urgent changes such as suspensions, room shifts, or safety updates. Confirm facts through official HAU channels.</p>${state.emergencyBanner.active?`<div class="mt-4 rounded-xl border border-rose-400/30 bg-rose-500/10 p-4 text-sm text-rose-100"><strong class="mr-2 text-xs uppercase">Live banner</strong>${esc(state.emergencyBanner.message)}</div>`:`<div class="mt-4 rounded-xl border border-slate-700/40 p-4 text-sm text-slate-500">No emergency notice is active.</div>`}<form class="mt-4 space-y-3" data-form="emergency"><label class="field-label">Banner message<textarea class="field min-h-24" name="message" maxlength="2000" placeholder="Example: The instructor has moved today's class to an online session." required>${esc(state.emergencyBanner.message)}</textarea></label><label class="flex items-center gap-2 text-xs text-slate-300"><input type="checkbox" name="active" class="accent-emerald-400" ${state.emergencyBanner.active?"checked":""}> Publish alert banner now</label><button class="btn btn-primary" type="submit">${icon("radio")} Save broadcast</button></form></div>`;
+    if (adminTab === "ai") return `<div class="max-w-3xl"><div class="eyebrow">Administrator-only drafting assistant</div><h2 class="mt-1 text-lg font-bold">Ai-Ai delas Alas</h2><p class="mt-2 text-xs leading-relaxed text-slate-400">Generate drafts for reminders, subject know-hows, or schedule overrides. The assistant cannot save changes. Review and edit the JSON below, then explicitly save through the standard protected class-state endpoint.</p><form class="mt-4 space-y-3" data-form="admin-ai"><div class="grid gap-3 sm:grid-cols-2"><label class="field-label">Draft type<select class="field" name="type"><option value="reminder">Reminder</option><option value="review">Subject know-how / review guide</option><option value="scheduleOverride">Schedule override</option></select></label><label class="field-label">Draft instructions<input class="field" name="prompt" maxlength="2000" placeholder="Describe the details to include…" required></label></div><button class="btn btn-primary" type="submit">${icon("sparkles")} Generate draft</button></form><label class="field-label mt-4 block">Review and edit draft JSON<textarea id="admin-ai-result" class="field mt-2 min-h-64 font-mono text-xs" maxlength="20000" spellcheck="false" placeholder="The generated draft will appear here. Review all values before saving."></textarea></label><p id="admin-ai-status" class="mt-2 min-h-5 text-xs text-slate-400" role="status" aria-live="polite"></p><button class="btn btn-primary mt-3" type="button" data-action="save-ai-draft">${icon("check")} Save reviewed draft</button></div>`;
     return `<div class="grid gap-4 lg:grid-cols-2"><article><div class="eyebrow">Shared data</div><h2 class="mt-1 text-lg font-bold">Backup & synchronization</h2><p class="mt-2 text-xs leading-relaxed text-slate-400">Export a versioned snapshot or import a validated JSON file. Imports replace shared class data for every visitor after server validation.</p><button class="btn btn-primary mt-4" data-action="export">${icon("download")} Export class state</button><div id="drop-zone" class="drop-zone mt-4" tabindex="0">Drop a class-state JSON file here, or <button class="underline text-emerald-200" data-action="import">choose a file</button></div></article><article class="rounded-xl border border-rose-300/20 bg-rose-400/5 p-4"><div class="eyebrow text-rose-200">Caution</div><h2 class="mt-1 text-lg font-bold">Reset shared state</h2><p class="mt-2 text-xs leading-relaxed text-slate-400">This restores the official seed state and removes all shared announcements, edits, and schedule overrides.</p><button class="btn btn-danger mt-4" data-action="hard-reset">${icon("rotate-ccw")} Reset to defaults</button></article></div><p class="mt-5 text-[11px] text-slate-500">Schema v${state.schemaVersion} · Revision ${revision ?? "—"} · Updated ${esc(lastStateSync?new Date(lastStateSync).toLocaleTimeString():"—")}</p>`;
   }
   function renderEmergency() {
     const banner=$("#emergency-banner");
     const message=String(state.emergencyBanner?.message||"").trim();
-    banner.classList.toggle("hidden",!state.emergencyBanner?.active||!message);
-    banner.innerHTML=state.emergencyBanner?.active&&message?`<strong>${icon("triangle-alert","inline h-4 w-4 align-[-3px]")} Emergency class update</strong>${esc(message)}`:"";
+    const updatedAt=String(state.emergencyBanner?.updatedAt||"");
+    let dismissed=false;
+    if(updatedAt){
+      try{dismissed=localStorage.getItem(dismissedBannerKey)===updatedAt;}
+      catch(error){console.error("Emergency banner dismissal could not be read:",error);}
+    }
+    const visible=!!state.emergencyBanner?.active&&!!message&&!dismissed;
+    banner.classList.toggle("hidden",!visible);
+    banner.innerHTML=visible?`<div class="emergency-banner-content"><span><strong>${icon("triangle-alert","inline h-4 w-4 align-[-3px]")} Emergency class update</strong>${esc(message)}</span>${Security.isAdminAuthenticated()?"":`<button class="emergency-dismiss" type="button" data-action="dismiss-banner" aria-label="Dismiss this emergency banner for this browser">Dismiss <span aria-hidden="true">&times;</span></button>`}</div>`:"";
+    refreshIcons(banner);
   }
   function renderClock() {
     const now=new Date();
@@ -747,6 +757,18 @@
     const id=element.dataset.id;
     if(action==="login")loginModal();
     else if(action==="logout")logout();
+    else if(action==="dismiss-banner"){
+      const updatedAt=String(state.emergencyBanner?.updatedAt||"");
+      try{
+        localStorage.setItem(dismissedBannerKey,updatedAt);
+        renderEmergency();
+      }catch(error){
+        console.error("Emergency banner dismissal could not be saved:",error);
+        element.closest("#emergency-banner")?.classList.add("hidden");
+        toast("The banner was hidden for this visit, but browser storage could not save the dismissal.","warning");
+      }
+    }
+    else if(action==="save-ai-draft")saveReviewedAiDraft();
     else if(action==="new-reminder")requireAdminAction("create a reminder")&&reminderForm();
     else if(action==="edit-reminder"){if(requireAdminAction("edit a reminder")){const item=state.reminders.find(entry=>entry.id===id);if(item)reminderForm(item);}}
     else if(action==="pin-reminder"){if(requireAdminAction("pin a reminder"))commitState(next=>{const item=next.reminders.find(entry=>entry.id===id);if(item)item.pinned=!item.pinned;},"Reminder pin updated.");}
@@ -780,10 +802,91 @@
     const form=event.target.closest("[data-form]");
     if(!form)return;
     event.preventDefault();
+    if(form.dataset.form==="admin-ai"){
+      generateAdminDraft(form);
+      return;
+    }
     if(!Security.requireAdmin("publish an emergency broadcast"))return;
     const values=new FormData(form),message=Security.sanitizeHTML(String(values.get("message")||"")).trim(),active=values.has("active");
     if(active&&!message){toast("Enter a message before publishing the emergency alert.","error");return;}
     commitState(next=>{next.emergencyBanner={active,message,updatedAt:new Date().toISOString()};},"Emergency banner updated.");
+  }
+  async function generateAdminDraft(form) {
+    if(!requireAdminAction("generate an admin draft"))return;
+    const values=new FormData(form);
+    const type=String(values.get("type")||"");
+    const prompt=String(values.get("prompt")||"").trim();
+    const button=$("button[type=submit]",form);
+    const status=$("#admin-ai-status");
+    button.disabled=true;
+    button.innerHTML='<span class="ai-spinner" aria-hidden="true"></span> Ai-Ai is drafting…';
+    status.textContent="Generating a draft for human review. No class data has been saved.";
+    try{
+      const result=await Security.request("/api/ai/admin-draft",{
+        method:"POST",
+        body:JSON.stringify({type,prompt})
+      });
+      if(result.type!==type||!result.draft||typeof result.draft!=="object")throw new Error("The draft response did not match the selected draft type.");
+      $("#admin-ai-result").value=JSON.stringify(result.draft,null,2);
+      status.textContent="Draft ready. Review and edit every field before saving.";
+    }catch(error){
+      status.textContent=error.status===429
+        ?"Ai-Ai is currently assisting many CYB-202 administrators. Please try again in 10 seconds."
+        :error.message||"Ai-Ai could not generate a draft.";
+      toast(status.textContent,"error");
+    }finally{
+      button.disabled=false;
+      button.innerHTML=`${icon("sparkles")} Generate draft`;
+      refreshIcons(button);
+    }
+  }
+  function saveReviewedAiDraft() {
+    if(!requireAdminAction("save a reviewed AI draft"))return;
+    const type=$("[data-form=admin-ai] [name=type]")?.value;
+    let draft;
+    try{draft=JSON.parse($("#admin-ai-result").value);}
+    catch(error){toast("Enter valid JSON in the reviewed draft before saving.","error");return;}
+    if(!draft||Array.isArray(draft)||typeof draft!=="object"){
+      toast("The reviewed draft must be a JSON object.","error");
+      return;
+    }
+    const fieldSets={
+      reminder:["title","subject","category","description","externalLink","dueAt","priority","pinned"],
+      review:["subject","title","summary","topics","formulas","downloadUrl","snippets"],
+      scheduleOverride:["date","scheduleId","status","message","room"]
+    };
+    const fields=fieldSets[type];
+    if(!fields||Object.keys(draft).some(key=>!fields.includes(key))){
+      toast("The reviewed draft contains unsupported fields or a missing draft type.","error");
+      return;
+    }
+    const stringFields=fields.filter(field=>!["pinned","topics","snippets"].includes(field));
+    if(stringFields.some(field=>typeof draft[field]!=="string")){
+      toast("Draft text fields must remain text values.","error");
+      return;
+    }
+    if(type==="reminder"&&typeof draft.pinned!=="boolean"){
+      toast("The reminder pinned value must be true or false.","error");
+      return;
+    }
+    if(type==="review"&&["topics","snippets"].some(field=>!Array.isArray(draft[field])||!draft[field].every(entry=>typeof entry==="string"))){
+      toast("Review topics and snippets must be lists of text values.","error");
+      return;
+    }
+    if(fields.some(field=>!Object.hasOwn(draft,field))){
+      toast("The reviewed draft is missing required fields.","error");
+      return;
+    }
+    if(type==="reminder"){
+      const record={id:crypto.randomUUID(),...draft,createdAt:new Date().toISOString()};
+      commitState(next=>next.reminders.push(record),"Reviewed reminder saved.");
+    }else if(type==="review"){
+      const record={id:crypto.randomUUID(),...draft};
+      commitState(next=>next.reviews.push(record),"Reviewed subject know-how saved.");
+    }else{
+      const record={id:crypto.randomUUID(),...draft};
+      commitState(next=>next.scheduleOverrides.push(record),"Reviewed schedule override saved.");
+    }
   }
   async function syncState() {
     if(stateRefreshBusy||!apiOnline||document.hidden||Date.now()-lastActivity>5*60_000)return;
@@ -802,17 +905,85 @@
   function appendAiMessage(role,text,extraClass="") {
     const message=document.createElement("div");
     message.className=`ai-message ${role}${extraClass?` ${extraClass}`:""}`;
-    message.textContent=text;
+    if(role==="assistant"){
+      const badge=document.createElement("span");
+      badge.className="ai-message-badge";
+      badge.textContent="BETTIE";
+      const content=document.createElement("div");
+      content.className="ai-message-content";
+      content.innerHTML=renderMarkdown(text);
+      message.append(badge,content);
+    }else message.textContent=text;
     $("#ai-chat-messages").append(message);
     $("#ai-chat-messages").scrollTop=$("#ai-chat-messages").scrollHeight;
     return message;
+  }
+  function renderInlineMarkdown(text) {
+    let escaped=esc(text);
+    const code=[];
+    escaped=escaped.replace(/`([^`]+)`/g,(_,value)=>{
+      const marker=`\u0000INLINECODE${code.length}\u0000`;
+      code.push(`<code>${value}</code>`);
+      return marker;
+    });
+    escaped=escaped
+      .replace(/\*\*(.+?)\*\*/g,"<strong>$1</strong>")
+      .replace(/(^|[^*])\*([^*\n]+)\*(?!\*)/g,"$1<em>$2</em>");
+    return escaped.replace(/\u0000INLINECODE(\d+)\u0000/g,(_,index)=>code[Number(index)]);
+  }
+  function renderMarkdown(markdown) {
+    const lines=String(markdown||"").replace(/\r\n?/g,"\n").split("\n");
+    const blocks=[];
+    let paragraph=[];
+    let index=0;
+    const flushParagraph=()=>{
+      if(paragraph.length){
+        blocks.push(`<p>${paragraph.map(renderInlineMarkdown).join("<br>")}</p>`);
+        paragraph=[];
+      }
+    };
+    while(index<lines.length){
+      const line=lines[index];
+      if(/^\s*```/.test(line)){
+        flushParagraph();
+        index+=1;
+        const code=[];
+        while(index<lines.length&&!/^\s*```/.test(lines[index]))code.push(lines[index++]);
+        if(index<lines.length)index+=1;
+        blocks.push(`<pre><code>${esc(code.join("\n"))}</code></pre>`);
+        continue;
+      }
+      const listMatch=line.match(/^\s*(?:[-*+]\s+|\d+\.\s+)/);
+      if(listMatch){
+        flushParagraph();
+        const ordered=/^\s*\d+\.\s+/.test(line);
+        const items=[];
+        while(index<lines.length){
+          const match=lines[index].match(/^\s*(?:[-*+]\s+|\d+\.\s+)(.+)$/);
+          if(!match||/^\s*\d+\.\s+/.test(lines[index])!==ordered)break;
+          items.push(`<li>${renderInlineMarkdown(match[1])}</li>`);
+          index+=1;
+        }
+        blocks.push(`<${ordered?"ol":"ul"}>${items.join("")}</${ordered?"ol":"ul"}>`);
+        continue;
+      }
+      if(!line.trim()){
+        flushParagraph();
+        index+=1;
+        continue;
+      }
+      paragraph.push(line);
+      index+=1;
+    }
+    flushParagraph();
+    return blocks.join("");
   }
   function openAiAssistant() {
     const panel=$("#ai-chat");
     panel.hidden=false;
     $("#ai-assistant-trigger").setAttribute("aria-expanded","true");
     if(!$("#ai-chat-messages").childElementCount){
-      appendAiMessage("assistant","Hi! I can help you review CYB-202 topics, understand your course guides, and find your class schedule.");
+      appendAiMessage("assistant","Hi! I’m BETTIE, your read-only CYB-202 study assistant. I can help with your timetable, reminders, subject know-hows, and Cyber Terminal references.");
     }
     $("#ai-chat-input").focus();
   }
@@ -832,8 +1003,11 @@
     trimAiHistory();
     appendAiMessage("user",question);
     const input=$("#ai-chat-input"),send=$("#ai-chat-send");
-    const thinking=appendAiMessage("assistant","Thinking…");
+    const thinking=appendAiMessage("assistant","BETTIE is generating a response…");
     aiBusy=true;input.disabled=true;send.disabled=true;
+    send.classList.add("is-loading");
+    send.setAttribute("aria-label","BETTIE is generating response");
+    send.innerHTML='<span class="ai-spinner" aria-hidden="true"></span><span>BETTIE is generating response...</span>';
     try{
       const response=await fetch("/api/ai/chat",{
         method:"POST",
@@ -847,19 +1021,26 @@
       if(!response.ok){
         const error=new Error(result.details||result.error||`Request failed (${response.status}).`);
         error.status=response.status;
+        error.code=result.error;
         throw error;
       }
       if(typeof result?.answer!=="string"||!result.answer.trim())throw new Error("The AI service returned an empty response.");
       aiMessages.push({role:"assistant",text:result.answer});
       trimAiHistory();
-      thinking.textContent=result.answer;
+      thinking.querySelector(".ai-message-content").innerHTML=renderMarkdown(result.answer);
       $("#ai-chat-messages").scrollTop=$("#ai-chat-messages").scrollHeight;
     }catch(error){
       aiMessages.pop();
       thinking.classList.add("error");
-      thinking.textContent=error.message||"The AI assistant could not answer. Please try again.";
+      thinking.textContent=error.code==="AI_BUSY"||error.status===429
+        ?"BETTIE is currently assisting many CYB-202 students! Please try your question again in 10 seconds."
+        :error.message||"BETTIE could not answer. Please try again.";
     }finally{
-      aiBusy=false;input.disabled=false;send.disabled=false;input.value="";input.focus();
+      aiBusy=false;input.disabled=false;send.disabled=false;send.classList.remove("is-loading");
+      send.setAttribute("aria-label","Send message");
+      send.innerHTML=icon("send");
+      refreshIcons(send);
+      input.value="";input.focus();
     }
   }
   async function initialize() {
