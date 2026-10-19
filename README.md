@@ -55,3 +55,5 @@ Serve the frontend and API from the same origin over HTTPS in production. The SH
 ## Shared state
 
 The server seeds the initial state from `data.js` on first startup. Changes to reminders, review guides, cheat sheets, emergency broadcasts, and date-specific schedule overrides are stored in SQLite and shared by every visitor. The timetable seed remains the baseline; temporary schedule changes can be reset without losing it. Exported snapshots use schema version 1 and are checked before server-side replacement.
+
+Reminders support Quiz, Quarterly Exam, Exam, Assignment, Project, and General categories. Existing Critical reminders migrate to General with High priority to retain their urgency. Authenticated administrators can use Ai-Ai's chat pills to complete a reminder draft and load it into the existing editable reminder form; nothing is published until the administrator reviews and submits that form.

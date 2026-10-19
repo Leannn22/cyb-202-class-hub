@@ -43,6 +43,7 @@
   let lastStateSync = Date.now();
   let stateRefreshBusy = false;
   let aiMessages = [];
+  let aiReminderDraft = null;
   let aiBusy = false;
   let aiPersona = "student";
   let aiRequestController = null;
@@ -135,7 +136,13 @@
     return `<span class="tag ${css}">${esc(priority)}</span>`;
   }
   function categoryTag(category) {
-    const css = category === "Critical" ? "tag-critical" : category === "Exam" ? "tag-exam" : "tag";
+    const css = {
+      "Quiz":"tag-quiz",
+      "Quarterly Exam":"tag-quarterly-exam",
+      "Exam":"tag-exam",
+      "Assignment":"tag-assignment",
+      "Project":"tag-project"
+    }[category] || (category === "General" ? "tag-general" : "tag");
     return `<span class="tag ${css}">${esc(category)}</span>`;
   }
   function dateUntil(value) {
@@ -171,8 +178,8 @@
     const footerEl=document.getElementById("ai-widget-footer");
     if(authenticated){
       if(titleEl)titleEl.textContent="Ai-Ai delas Alas";
-      if(subtitleEl)subtitleEl.textContent="Admin Drafting & Structuring Assistant";
-      if(inputEl)inputEl.placeholder="Ask Ai-Ai to draft a reminder, schedule override, or reviewer note...";
+      if(subtitleEl)subtitleEl.textContent="Admin Drafting & Form Assistant";
+      if(inputEl)inputEl.placeholder="Ask Ai-Ai to draft a quiz, exam, assignment, or schedule change...";
       if(footerEl)footerEl.textContent="Ai-Ai helps admins draft content safely. Changes require manual approval.";
     }else{
       if(titleEl)titleEl.textContent="BETTIE";
@@ -211,6 +218,7 @@
     }
     if(personaChanged){
       aiMessages=[];
+      aiReminderDraft=null;
       $("#ai-chat-messages").replaceChildren();
     }
     if(personaChanged&&!$("#ai-chat").hidden)appendAiMessage("assistant",authenticated
@@ -326,7 +334,7 @@
     return `<div class="relative space-y-3 pl-1"><span class="timeline-line" aria-hidden="true"></span>${rows.join("")}</div>`;
   }
   function reminderCard(item, actions = true) {
-    const urgent = item.priority === "High" || item.category === "Critical";
+    const urgent = item.priority === "High";
     const url = Security.safeExternalURL(item.externalLink);
     return `<article class="panel-card reminder-card p-4 ${item.pinned?"pinned":""} ${urgent?"urgent":""}">
       <div class="flex items-start justify-between gap-3"><div class="flex flex-wrap items-center gap-1.5">${item.pinned?`<span class="tag tag-medium">${icon("pin","h-3 w-3")} Pinned</span>`:""}${categoryTag(item.category)}${priorityTag(item.priority)}</div>
@@ -340,7 +348,7 @@
   }
   function renderToday() {
     const now = new Date();
-    const soon = state.reminders.filter(item=>item.dueAt&&(item.priority==="High"||item.category==="Critical")&&new Date(item.dueAt).getTime()-now.getTime()<48*60*60*1000)
+    const soon = state.reminders.filter(item=>item.dueAt&&item.priority==="High"&&new Date(item.dueAt).getTime()-now.getTime()<48*60*60*1000)
       .sort((a,b)=>(a.dueAt||"").localeCompare(b.dueAt||"")).slice(0,4);
     const roomCount = state.schedule.filter(item=>item.day===weekdayKey(now)).length;
     return `${viewHeading("Holy Angel University · Section CYB-202","Today's focus","One shared class dashboard for timetable changes, class-wide notices, reviewer notes, and the next thing on the section's radar.",
@@ -375,9 +383,8 @@
   }
   function filteredReminders() {
     return state.reminders.filter(item=>{
-      if (reminderFilter === "Exams") return item.category === "Exam";
-      if (reminderFilter === "Assignments") return item.category === "Assignment";
-      if (reminderFilter === "Urgent") return item.category === "Critical" || item.priority === "High";
+      if (reminderFilter === "Urgent") return item.priority === "High";
+      if (reminderFilter !== "All") return item.category === reminderFilter;
       return true;
     }).slice().sort((a,b)=>Number(b.pinned)-Number(a.pinned) || dueSort(a,b));
   }
@@ -387,9 +394,9 @@
     return ad-bd;
   }
   function renderReminders() {
-    const filters=["All","Exams","Assignments","Urgent"];
+    const filters=["All",...CYB202_DATA.reminderCategories,"Urgent"];
     return `${viewHeading("Section-wide announcements","Class reminders","Shared notices, exam coverage, assignment deadlines, and important links. Changes require an authenticated class administrator.",Security.isAdminAuthenticated()?`<button class="btn btn-primary" data-action="new-reminder">${icon("plus")} New reminder</button>`:"")}
-      <div class="mb-4 flex flex-wrap gap-2">${filters.map(filter=>`<button class="btn ${reminderFilter===filter?"btn-primary":""}" data-filter-reminders="${filter}" aria-pressed="${reminderFilter===filter}">${filter==="Urgent"?icon("triangle-alert"):filter==="Exams"?icon("alarm-clock"):filter==="Assignments"?icon("file-check-2"):icon("list-filter")} ${filter}</button>`).join("")}</div>
+      <div class="mb-4 flex flex-wrap gap-2">${filters.map(filter=>`<button class="btn ${reminderFilter===filter?"btn-primary":""}" data-filter-reminders="${esc(filter)}" aria-pressed="${reminderFilter===filter}">${filter==="Urgent"?icon("triangle-alert"):filter==="All"?icon("list-filter"):icon("tag")} ${esc(filter)}</button>`).join("")}</div>
       <div id="reminder-list" class="grid gap-3 lg:grid-cols-2">${filteredReminders().map(item=>reminderCard(item)).join("")||`<div class="empty-state lg:col-span-2">No reminders in this filter.</div>`}</div>`;
   }
   function renderReviews() {
@@ -539,7 +546,7 @@
   function reminderForm(item = {}) {
     const isEdit=!!item.id;
     const body=`${formField("Title","title",item.title||"","text",true,'maxlength="240"')}
-      <div class="grid gap-3 sm:grid-cols-2">${selectField("Subject tag","subject",["ALL",...state.subjects.map(subject=>subject.code)],item.subject||"ALL")}${selectField("Category","category",["Critical","Exam","Assignment","General"],item.category||"General")}</div>
+      <div class="grid gap-3 sm:grid-cols-2">${selectField("Subject tag","subject",["ALL",...state.subjects.map(subject=>subject.code)],item.subject||"ALL")}${selectField("Category","category",CYB202_DATA.reminderCategories,item.category||"General")}</div>
       ${multilineField("Scope / description","description",item.description||"","Add the detail classmates need to know.")}
       <div class="grid gap-3 sm:grid-cols-2">${formField("External resource link (optional)","externalLink",item.externalLink||"","url",false,'placeholder="https://…"')}${formField("Due date & time (optional)","dueAt",item.dueAt?localDateTime(new Date(item.dueAt)):"","datetime-local",false)}</div>
       <div class="grid gap-3 sm:grid-cols-2">${selectField("Priority","priority",["High","Medium","Low"],item.priority||"Medium")}<label class="flex items-center gap-2 self-end pb-2 text-xs text-slate-300"><input type="checkbox" name="pinned" class="accent-emerald-400" ${item.pinned?"checked":""}> Pin this notice</label></div>`;
@@ -830,6 +837,7 @@
       }
     }
     else if(action==="save-ai-draft")saveReviewedAiDraft();
+    else if(action==="apply-ai-reminder-draft")applyAiReminderDraft();
     else if(action==="new-reminder")requireAdminAction("create a reminder")&&reminderForm();
     else if(action==="edit-reminder"){if(requireAdminAction("edit a reminder")){const item=state.reminders.find(entry=>entry.id===id);if(item)reminderForm(item);}}
     else if(action==="pin-reminder"){if(requireAdminAction("pin a reminder"))commitState(next=>{const item=next.reminders.find(entry=>entry.id===id);if(item)item.pinned=!item.pinned;},"Reminder pin updated.");}
@@ -1080,6 +1088,165 @@
     $("#ai-assistant-trigger").setAttribute("aria-expanded","false");
     $("#ai-assistant-trigger").focus();
   }
+  function reminderDraftFromPrompt(prompt) {
+    const text=prompt.trim();
+    const categories=CYB202_DATA.reminderCategories;
+    const category=categories.find(value=>new RegExp(`\\b${value.replace(/[.*+?^${}()|[\]\\]/g,"\\$&").replace(/\s+/g,"\\s+")}\\b`,"i").test(text))||"";
+    const subject=state.subjects.map(entry=>entry.code).concat("ALL")
+      .find(code=>new RegExp(`\\b${code}\\b`,"i").test(text))||"";
+    const priority=["High","Medium","Low"].find(value=>new RegExp(`\\b${value}\\b`,"i").test(text))||"";
+    const pinned=/\b(pin|pinned|pin to top)\b/i.test(text)
+      ?true:/\b(normal notice|do not pin|unpin|not pinned)\b/i.test(text)?false:null;
+    const cleaned=text
+      .replace(/^\s*(?:please\s+)?(?:add|create|draft|write|post|make)\s+(?:(?:a|an|the)\s+)?/i,"")
+      .replace(/[.!?]+$/,"").trim();
+    const title=cleaned?cleaned.charAt(0).toUpperCase()+cleaned.slice(1):"Class reminder";
+    const dueAt=guessReminderDueDate(text);
+    return {
+      title:title.slice(0,240),
+      description:text.slice(0,8000),
+      subject,
+      category,
+      dueAt,
+      priority,
+      pinned
+    };
+  }
+  function guessReminderDueDate(text) {
+    const isoDate=text.match(/\b(20\d{2}-\d{2}-\d{2})(?:[ T](\d{2}:\d{2}))?\b/);
+    if(isoDate){
+      const value=new Date(`${isoDate[1]}T${isoDate[2]||"23:59"}:00`);
+      return Number.isNaN(value.getTime())?"":value.toISOString();
+    }
+    const date=new Date();
+    if(/\btomorrow\b/i.test(text)){
+      date.setDate(date.getDate()+1);
+      date.setHours(23,59,0,0);
+      return date.toISOString();
+    }
+    if(/\bthis friday\b/i.test(text)){
+      date.setDate(date.getDate()+((5-date.getDay()+7)%7||7));
+      date.setHours(23,59,0,0);
+      return date.toISOString();
+    }
+    return "";
+  }
+  function reminderDueSuggestion(choice) {
+    const date=new Date();
+    if(choice==="Tomorrow 11:59 PM"){
+      date.setDate(date.getDate()+1);
+      date.setHours(23,59,0,0);
+      return date.toISOString();
+    }
+    if(choice==="This Friday"){
+      date.setDate(date.getDate()+((5-date.getDay()+7)%7||7));
+      date.setHours(23,59,0,0);
+      return date.toISOString();
+    }
+    if(choice==="Next Class"){
+      const occurrence=nextOccurrence(date);
+      return occurrence?occurrence.start.toISOString():"";
+    }
+    return "";
+  }
+  function showAiReminderDraft() {
+    if(!aiReminderDraft||!Security.isAdminAuthenticated())return;
+    const draft=aiReminderDraft;
+    const missing=[
+      ["subject","Subject",!draft.subject],
+      ["category","Category",!draft.category],
+      ["dueAt","Due date",!draft.dueAt],
+      ["priority","Priority",!draft.priority],
+      ["pinned","Pin state",draft.pinned===null]
+    ].filter(([, ,isMissing])=>isMissing);
+    const message=appendAiMessage("assistant",missing.length
+      ?"I’ve started a reminder draft. Choose the missing details below; your choices stay in this chat until you apply the preview."
+      :"Your reminder draft is ready to review.");
+    const content=message.querySelector(".ai-message-content");
+    if(!missing.length){
+      const due=new Date(draft.dueAt);
+      content.innerHTML=`<p><strong>Draft Preview</strong></p>
+        <div class="ai-draft-preview">
+          <div><span>Title</span><strong>${esc(draft.title)}</strong></div>
+          <div><span>Subject</span><strong>${esc(draft.subject)}</strong></div>
+          <div><span>Category</span><strong>${esc(draft.category)}</strong></div>
+          <div><span>Due</span><strong>${esc(due.toLocaleString(undefined,{weekday:"short",month:"short",day:"numeric",hour:"numeric",minute:"2-digit"}))}</strong></div>
+          <div><span>Priority</span><strong>${esc(draft.priority)}</strong></div>
+          <div><span>Pin state</span><strong>${draft.pinned?"Pinned":"Normal notice"}</strong></div>
+          <p>${esc(draft.description)}</p>
+          <button class="btn ai-apply-draft" type="button" data-action="apply-ai-reminder-draft">Apply Draft to Admin Form</button>
+        </div>`;
+      return;
+    }
+    const choices={
+      subject:["6ITN","6DASALGO","6IMAN","6DWEB","4READPHILHIS","2PROBSTAT","THEOLOGY103","7TPE4","ALL"],
+      category:CYB202_DATA.reminderCategories,
+      dueAt:["Tomorrow 11:59 PM","Next Class","This Friday","Select Custom Date"],
+      priority:["High","Medium","Low"],
+      pinned:["Pin to Top","Normal Notice"]
+    };
+    const groupHtml=missing.map(([field,label])=>{
+      const buttons=choices[field].map(value=>{
+        return `<button type="button" class="ai-choice-pill" data-ai-choice-field="${field}" data-ai-choice-value="${esc(value)}">${esc(value)}</button>`;
+      }).join("");
+      const customPicker=field==="dueAt"&&draft.customDateVisible
+        ?`<div class="ai-custom-date"><label>${label}<input class="field" type="datetime-local" data-ai-custom-date></label><button type="button" class="btn" data-ai-action="use-custom-date">Use date</button></div>`:"";
+      return `<div class="ai-choice-group"><strong>${label}</strong><div class="ai-choice-pills">${buttons}</div>${customPicker}</div>`;
+    }).join("");
+    content.insertAdjacentHTML("beforeend",`<div class="ai-draft-prompt"><strong>Draft:</strong> ${esc(draft.title)}</div>${groupHtml}`);
+  }
+  function handleAiDraftChoice(button) {
+    if(!Security.isAdminAuthenticated()||!aiReminderDraft)return;
+    const field=button.dataset.aiChoiceField;
+    const choice=button.dataset.aiChoiceValue;
+    if(field==="dueAt"&&choice==="Select Custom Date"){
+      aiReminderDraft.customDateVisible=true;
+    }else if(field==="dueAt"){
+      aiReminderDraft.dueAt=reminderDueSuggestion(choice);
+    }else if(field==="pinned"){
+      aiReminderDraft.pinned=choice==="Pin to Top";
+    }else if(field==="subject"&&(choice==="ALL"||state.subjects.some(subject=>subject.code===choice))){
+      aiReminderDraft.subject=choice;
+    }else if(field==="category"&&CYB202_DATA.reminderCategories.includes(choice)){
+      aiReminderDraft.category=choice;
+    }else if(field==="priority"&&["High","Medium","Low"].includes(choice)){
+      aiReminderDraft.priority=choice;
+    }else{
+      toast("That reminder choice is not valid.","error");
+      return;
+    }
+    showAiReminderDraft();
+  }
+  function applyAiReminderDraft() {
+    if(!requireAdminAction("apply an Ai-Ai reminder draft")||!aiReminderDraft)return;
+    const draft={...aiReminderDraft};
+    if(!draft.title||!draft.description||!draft.subject||!draft.category||!draft.dueAt||!draft.priority||typeof draft.pinned!=="boolean"){
+      toast("Complete all reminder details in the chat before applying the draft.","error");
+      return;
+    }
+    closeAiAssistant();
+    adminTab="reminders";
+    if(activeView!=="admin")switchView("admin");
+    else renderActiveView();
+    reminderForm(draft);
+  }
+  function handleAiCustomDate(button) {
+    if(!Security.isAdminAuthenticated()||!aiReminderDraft)return;
+    const input=$("[data-ai-custom-date]",button.closest(".ai-message"));
+    if(!input?.value){
+      toast("Choose a due date and time first.","error");
+      input?.focus();
+      return;
+    }
+    const date=new Date(input.value);
+    if(Number.isNaN(date.getTime())){
+      toast("Choose a valid due date and time.","error");
+      return;
+    }
+    aiReminderDraft.dueAt=date.toISOString();
+    aiReminderDraft.customDateVisible=false;
+    showAiReminderDraft();
+  }
   function trimAiHistory() {
     while(aiMessages.length>12)aiMessages.shift();
     if(aiMessages[0]?.role==="assistant")aiMessages.shift();
@@ -1088,7 +1255,14 @@
     const question=text.trim();
     if(!question||aiBusy)return;
     if(Security.isAdminAuthenticated()){
-      openAdminAiWorkspace(question);
+      if(/\b(add|create|draft|write|post|make)\b/i.test(question)&&/\b(reminder|quiz|quarterly exam|exam|assignment|project|general notice|class notice)\b/i.test(question)){
+        aiReminderDraft=reminderDraftFromPrompt(question);
+        appendAiMessage("user",question);
+        $("#ai-chat-input").value="";
+        showAiReminderDraft();
+      }else{
+        openAdminAiWorkspace(question);
+      }
       return;
     }
     aiMessages.push({role:"user",text:question});
@@ -1204,6 +1378,10 @@
   });
   document.addEventListener("click",event=>{
     if(!event.target.closest("#appearance-panel")&&!event.target.closest("#appearance-trigger"))closeAppearancePanel();
+    const aiChoice=event.target.closest("[data-ai-choice-field]");
+    if(aiChoice){handleAiDraftChoice(aiChoice);return;}
+    const aiAction=event.target.closest("[data-ai-action]");
+    if(aiAction?.dataset.aiAction==="use-custom-date"){handleAiCustomDate(aiAction);return;}
     const prompt=event.target.closest("[data-ai-prompt]");
     if(prompt){openAiAssistant();$("#ai-chat-input").value=prompt.dataset.aiPrompt;sendAiMessage(prompt.dataset.aiPrompt);return;}
     const view=event.target.closest("[data-view]");

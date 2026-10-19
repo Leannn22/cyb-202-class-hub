@@ -35,4 +35,25 @@ db.exec(`
 const seed = db.prepare("INSERT OR IGNORE INTO class_state (id, revision, payload, updated_at) VALUES (1, 1, ?, ?)");
 seed.run(JSON.stringify(defaultState), new Date().toISOString());
 
+db.transaction(() => {
+  const row = db.prepare("SELECT revision, payload FROM class_state WHERE id=1").get();
+  if (!row) throw new Error("The class state row is missing during category migration.");
+  const state = JSON.parse(row.payload);
+  let changed = false;
+  for (const reminder of state.reminders) {
+    if (reminder.category === "Critical") {
+      reminder.category = "General";
+      reminder.priority = "High";
+      changed = true;
+    }
+  }
+  if (changed) {
+    db.prepare("UPDATE class_state SET revision=?, payload=?, updated_at=? WHERE id=1").run(
+      row.revision + 1,
+      JSON.stringify(state),
+      new Date().toISOString(),
+    );
+  }
+})();
+
 module.exports = { db, dbPath };

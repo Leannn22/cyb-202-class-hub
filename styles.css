@@ -87,7 +87,13 @@ select.field option { color: #e2e8f0; background: #111c2d; }
 .field-label .field { margin-top: .4rem; }
 .tag { display: inline-flex; align-items: center; gap: .3rem; border: 1px solid var(--line); border-radius: 999px; padding: .24rem .55rem; color: #cbd5e1; background: rgba(51,65,85,.3); font-size: .63rem; font-weight: 600; }
 .tag-high, .tag-critical { color: #fda4af; background: rgba(244,63,94,.1); border-color: rgba(251,113,133,.2); }
-.tag-medium, .tag-exam { color: #fde68a; background: rgba(251,191,36,.1); border-color: rgba(251,191,36,.2); }
+.tag-medium { color: #fde68a; background: rgba(251,191,36,.1); border-color: rgba(251,191,36,.2); }
+.tag-quiz { color: #fbbf24; background: rgba(245,158,11,.1); border-color: rgba(245,158,11,.3); box-shadow: 0 0 14px rgba(245,158,11,.12); }
+.tag-exam { color: #fdba74; background: rgba(234,88,12,.1); border-color: rgba(249,115,22,.3); box-shadow: 0 0 14px rgba(249,115,22,.12); }
+.tag-quarterly-exam { color: #c4b5fd; background: rgba(168,85,247,.1); border-color: rgba(168,85,247,.3); box-shadow: 0 0 14px rgba(168,85,247,.14); }
+.tag-assignment { color: #67e8f9; background: rgba(6,182,212,.1); border-color: rgba(6,182,212,.3); box-shadow: 0 0 14px rgba(6,182,212,.12); }
+.tag-project { color: #fda4af; background: rgba(244,63,94,.1); border-color: rgba(244,63,94,.3); box-shadow: 0 0 14px rgba(244,63,94,.12); }
+.tag-general { color: #cbd5e1; background: rgba(100,116,139,.12); border-color: rgba(148,163,184,.24); }
 .tag-low { color: var(--text-accent); background: var(--accent-surface); border-color: var(--accent-glow); }
 .metric-value { font-variant-numeric: tabular-nums; letter-spacing: -.06em; }
 .progress-track { height: .42rem; overflow: hidden; border-radius: 999px; background: rgba(148,163,184,.14); }
@@ -144,6 +150,22 @@ select.field option { color: #e2e8f0; background: #111c2d; }
 .ai-message-content strong { color: #f8fafc; font-weight: 750; }
 .ai-message-content em { color: #cbd5e1; }
 .ai-message-content code { border-radius: .25rem; padding: .08rem .27rem; color: #6ee7b7; background: rgba(2,6,23,.7); font: .9em ui-monospace,SFMono-Regular,Consolas,monospace; }
+.ai-choice-group { margin-top: .75rem; }
+.ai-choice-group > strong { display: block; margin-bottom: .35rem; color: #cbd5e1; font-size: .68rem; }
+.ai-choice-pills { display: flex; flex-wrap: wrap; gap: .35rem; }
+.ai-choice-pill { border: 1px solid rgba(148,163,184,.24); border-radius: 999px; padding: .34rem .55rem; color: #cbd5e1; background: rgba(15,23,42,.68); font-size: .65rem; cursor: pointer; transition: .16s ease; }
+.ai-choice-pill:hover { border-color: var(--accent-primary); color: var(--text-accent); background: var(--accent-surface); box-shadow: 0 0 14px var(--accent-glow); }
+.ai-custom-date { display: flex; align-items: end; gap: .5rem; margin-top: .55rem; }
+.ai-custom-date label { flex: 1 1 auto; color: #cbd5e1; font-size: .65rem; }
+.ai-custom-date .field { margin-top: .3rem; }
+.ai-draft-prompt { margin-top: .65rem; border-top: 1px solid var(--line); padding-top: .55rem; font-size: .7rem; }
+.ai-draft-preview { margin-top: .45rem; border: 1px solid rgba(16,185,129,.28); border-radius: .8rem; padding: .7rem; background: rgba(16,185,129,.06); }
+.ai-draft-preview > div { display: flex; justify-content: space-between; gap: .75rem; padding: .22rem 0; }
+.ai-draft-preview > div span { color: #94a3b8; }
+.ai-draft-preview > div strong { text-align: right; }
+.ai-draft-preview > p { margin-top: .55rem; border-top: 1px solid var(--line); padding-top: .5rem; color: #cbd5e1; }
+.ai-apply-draft { width: 100%; margin-top: .65rem; color: #052e24; border-color: #34d399; background: #34d399; font-weight: 800; }
+.ai-apply-draft:hover { color: #052e24; background: #6ee7b7; }
 .ai-message-content pre { overflow-x: auto; margin: .5rem 0; border: 1px solid rgba(148,163,184,.14); border-radius: .55rem; padding: .55rem .65rem; color: #34d399; background: #0f172a; font: .72rem/1.55 ui-monospace,SFMono-Regular,Consolas,monospace; white-space: pre; }
 .ai-message-content pre code { padding: 0; color: inherit; background: transparent; font: inherit; }
 .ai-quick-prompts { display: flex; flex: 0 0 auto; gap: .4rem; overflow-x: auto; padding: 0 .85rem .7rem; scrollbar-width: none; }

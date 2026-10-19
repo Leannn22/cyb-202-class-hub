@@ -13,6 +13,7 @@
   };
 
   const dayKeys = Object.freeze({ Mon: 1, Tue: 2, Wed: 3, Thu: 4, Fri: 5, Sat: 6 });
+  const reminderCategories = Object.freeze(["Quiz", "Quarterly Exam", "Exam", "Assignment", "Project", "General"]);
   const timetable = [
     { id:"sched-2119-tue", code:"2119", subject:"4READPHILHIS", title:"Readings in Philippine History", day:"Tue", start:"13:20", end:"14:50", room:"SJH-504" },
     { id:"sched-2119-fri", code:"2119", subject:"4READPHILHIS", title:"Readings in Philippine History", day:"Fri", start:"13:20", end:"14:50", room:"SJH-504" },
@@ -68,7 +69,7 @@
     scheduleOverrides: [],
     emergencyBanner: { active:false, message:"", updatedAt:"" }
   };
-  return freeze({ dayKeys, roomGuide: {
+  return freeze({ dayKeys, reminderCategories, roomGuide: {
     SJH:"St. Joseph Hall (Main Academic Building)",
     MGN:"Archbishop Miguel Febres Cordero Hall",
     IHM:"Institute of Hotel Management Gym / Complex"
