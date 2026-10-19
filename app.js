@@ -44,6 +44,8 @@
   let stateRefreshBusy = false;
   let aiMessages = [];
   let aiBusy = false;
+  let aiPersona = "student";
+  let aiRequestController = null;
   let selectedTheme = "theme-emerald";
   let themeStorageWarningShown = false;
 
@@ -159,6 +161,54 @@
     notice.classList.toggle("hidden", online);
     notice.textContent = message || "The shared class server is unavailable. You're viewing the seed timetable; shared edits and updates are disabled.";
   }
+  function setAiPersona(isAdmin) {
+    const nextPersona=isAdmin?"admin":"student";
+    if(aiPersona===nextPersona)return;
+    aiPersona=nextPersona;
+    const copy=isAdmin?{
+      title:"Ai-Ai delas Alas (Admin Assistant)",
+      subtitle:"Drafting & Admin Helper",
+      placeholder:"Ask Ai-Ai to draft a reminder, schedule override, or reviewer note...",
+      triggerLabel:"Open Ai-Ai delas Alas, the admin drafting assistant",
+      closeLabel:"Close Ai-Ai delas Alas",
+      inputLabel:"Ask Ai-Ai to draft an admin update",
+      disclaimer:"Ai-Ai creates drafts only. Review and edit every draft in the Admin Portal before saving."
+    }:{
+      title:"BETTIE",
+      subtitle:"Read-only study help for CYB-202",
+      placeholder:"Ask a CYB-202 study question…",
+      triggerLabel:"Open BETTIE, the CYB-202 study assistant",
+      closeLabel:"Close BETTIE",
+      inputLabel:"Ask BETTIE, the CYB-202 study assistant",
+      disclaimer:"BETTIE is read-only and can be inaccurate. Verify course details with your instructor."
+    };
+    $("#ai-chat-title").textContent=copy.title;
+    $("#ai-chat-subtitle").textContent=copy.subtitle;
+    $("#ai-chat-input").placeholder=copy.placeholder;
+    $("#ai-assistant-trigger").setAttribute("aria-label",copy.triggerLabel);
+    $("#ai-chat-close").setAttribute("aria-label",copy.closeLabel);
+    $('label[for="ai-chat-input"]').textContent=copy.inputLabel;
+    $("#ai-disclaimer").textContent=copy.disclaimer;
+    $("#ai-quick-prompts").hidden=isAdmin;
+    $("#ai-quick-prompts").classList.toggle("hidden",isAdmin);
+    if(aiRequestController){
+      aiRequestController.abort();
+      aiRequestController=null;
+      aiBusy=false;
+      const input=$("#ai-chat-input"),send=$("#ai-chat-send");
+      input.disabled=false;
+      send.disabled=false;
+      send.classList.remove("is-loading");
+      send.setAttribute("aria-label","Send message");
+      send.innerHTML=icon("send");
+      refreshIcons(send);
+    }
+    aiMessages=[];
+    $("#ai-chat-messages").replaceChildren();
+    if(!$("#ai-chat").hidden)appendAiMessage("assistant",isAdmin
+      ?"Hi! I’m Ai-Ai delas Alas, your administrator drafting helper. Send a request to prepare a reminder, schedule override, or reviewer note for review in the Admin Portal."
+      :"Hi! I’m BETTIE, your read-only CYB-202 study assistant. I can help with your timetable, reminders, subject know-hows, and Cyber Terminal references.");
+  }
   function setRoleIndicator() {
     const label = $("#role-label");
     const button = $("#admin-trigger");
@@ -167,6 +217,7 @@
     button.classList.toggle("authorized", isAdmin);
     button.setAttribute("aria-label", isAdmin ? `Admin view authorized for ${currentSession.adminName}; click to sign out` : "Student view, read only; click to sign in as an administrator");
     $("#tab-admin").classList.toggle("admin-active", isAdmin);
+    setAiPersona(isAdmin);
   }
   function renderNavigation() {
     $("#view-root").setAttribute("aria-labelledby",`tab-${activeView}`);
@@ -361,7 +412,7 @@
     if (adminTab === "schedule") return `<div class="mb-4 flex items-center justify-between gap-3"><div><h2 class="text-lg font-bold">Temporary schedule changes</h2><p class="text-xs text-slate-400">Post a dated room change, online shift, absence, or cancellation. The base timetable remains intact.</p></div><button class="btn btn-primary" data-action="new-override">${icon("plus")} Add override</button></div><div class="mb-4 flex flex-wrap items-center justify-between gap-2"><span class="text-xs text-slate-400">${state.scheduleOverrides.length} active record(s)</span><button class="btn btn-danger" data-action="reset-overrides">${icon("rotate-ccw")} Reset to official timetable</button></div><div class="space-y-2">${state.scheduleOverrides.map(item=>`<article class="flex flex-wrap items-start justify-between gap-3 rounded-xl border border-slate-700/40 p-3"><div><span class="tag">${esc(item.date)}</span><span class="tag ml-1">${esc(item.status)}</span><h3 class="mt-2 text-sm font-semibold">${esc(item.scheduleId==="*"?"All classes":state.schedule.find(s=>s.id===item.scheduleId)?.title||"Removed class")}</h3><p class="mt-1 text-xs text-slate-400">${esc(item.room)} ${esc(item.message)}</p></div><div class="flex gap-2"><button class="btn !p-2" data-action="edit-override" data-id="${esc(item.id)}" aria-label="Edit override">${icon("pencil")}</button><button class="btn btn-danger !p-2" data-action="delete-override" data-id="${esc(item.id)}" aria-label="Delete override">${icon("trash-2")}</button></div></article>`).join("")||`<div class="empty-state">No temporary schedule changes.</div>`}</div>`;
     if (adminTab === "reviews") return `<div class="mb-4 flex items-center justify-between gap-3"><div><h2 class="text-lg font-bold">Subject know-hows</h2><p class="text-xs text-slate-400">Maintain section lecture summaries, formulas, topics, and snippets.</p></div><button class="btn btn-primary" data-action="new-review">${icon("plus")} Add guide</button></div><div class="space-y-2">${state.reviews.map(item=>`<article class="flex flex-wrap items-center justify-between gap-2 rounded-xl border border-slate-700/40 p-3"><div><div class="eyebrow">${esc(item.subject)}</div><div class="mt-1 text-sm font-semibold">${esc(item.title)}</div></div><div class="flex gap-2"><button class="btn" data-action="edit-review" data-id="${esc(item.id)}">${icon("pencil")} Edit</button><button class="btn btn-danger !p-2" data-action="delete-review" data-id="${esc(item.id)}" aria-label="Delete guide">${icon("trash-2")}</button></div></article>`).join("")}</div>`;
     if (adminTab === "banner") return `<div class="max-w-2xl"><div class="eyebrow">Emergency broadcast</div><h2 class="mt-1 text-lg font-bold">Section-wide alert banner</h2><p class="mt-2 text-xs leading-relaxed text-slate-400">Reserve for urgent changes such as suspensions, room shifts, or safety updates. Confirm facts through official HAU channels.</p>${state.emergencyBanner.active?`<div class="mt-4 rounded-xl border border-rose-400/30 bg-rose-500/10 p-4 text-sm text-rose-100"><strong class="mr-2 text-xs uppercase">Live banner</strong>${esc(state.emergencyBanner.message)}</div>`:`<div class="mt-4 rounded-xl border border-slate-700/40 p-4 text-sm text-slate-500">No emergency notice is active.</div>`}<form class="mt-4 space-y-3" data-form="emergency"><label class="field-label">Banner message<textarea class="field min-h-24" name="message" maxlength="2000" placeholder="Example: The instructor has moved today's class to an online session." required>${esc(state.emergencyBanner.message)}</textarea></label><label class="flex items-center gap-2 text-xs text-slate-300"><input type="checkbox" name="active" class="accent-emerald-400" ${state.emergencyBanner.active?"checked":""}> Publish alert banner now</label><button class="btn btn-primary" type="submit">${icon("radio")} Save broadcast</button></form></div>`;
-    if (adminTab === "ai") return `<div class="max-w-3xl"><div class="eyebrow">Administrator-only drafting assistant</div><h2 class="mt-1 text-lg font-bold">Ai-Ai delas Alas</h2><p class="mt-2 text-xs leading-relaxed text-slate-400">Generate drafts for reminders, subject know-hows, or schedule overrides. The assistant cannot save changes. Review and edit the JSON below, then explicitly save through the standard protected class-state endpoint.</p><form class="mt-4 space-y-3" data-form="admin-ai"><div class="grid gap-3 sm:grid-cols-2"><label class="field-label">Draft type<select class="field" name="type"><option value="reminder">Reminder</option><option value="review">Subject know-how / review guide</option><option value="scheduleOverride">Schedule override</option></select></label><label class="field-label">Draft instructions<input class="field" name="prompt" maxlength="2000" placeholder="Describe the details to include…" required></label></div><button class="btn btn-primary" type="submit">${icon("sparkles")} Generate draft</button></form><label class="field-label mt-4 block">Review and edit draft JSON<textarea id="admin-ai-result" class="field mt-2 min-h-64 font-mono text-xs" maxlength="20000" spellcheck="false" placeholder="The generated draft will appear here. Review all values before saving."></textarea></label><p id="admin-ai-status" class="mt-2 min-h-5 text-xs text-slate-400" role="status" aria-live="polite"></p><button class="btn btn-primary mt-3" type="button" data-action="save-ai-draft">${icon("check")} Save reviewed draft</button></div>`;
+    if (adminTab === "ai") return `<div class="max-w-3xl"><div class="eyebrow">Administrator-only drafting assistant</div><h2 class="mt-1 text-lg font-bold">Ai-Ai delas Alas</h2><p class="mt-2 text-xs leading-relaxed text-slate-400">Generate drafts for reminders, subject know-hows, or schedule overrides. The assistant cannot save changes. Review and edit the JSON below, then explicitly save through the standard protected class-state endpoint.</p><form class="mt-4 space-y-3" data-form="admin-ai"><div class="grid gap-3 sm:grid-cols-2"><label class="field-label">Draft type<select class="field" name="type"><option value="reminder">Reminder</option><option value="review">Subject know-how / review guide</option><option value="scheduleOverride">Schedule override</option></select></label><label class="field-label">Draft instructions<input id="admin-ai-prompt" class="field" name="prompt" maxlength="2000" placeholder="Describe the details to include…" required></label></div><button class="btn btn-primary" type="submit">${icon("sparkles")} Generate draft</button></form><label class="field-label mt-4 block">Review and edit draft JSON<textarea id="admin-ai-result" class="field mt-2 min-h-64 font-mono text-xs" maxlength="20000" spellcheck="false" placeholder="The generated draft will appear here. Review all values before saving."></textarea></label><p id="admin-ai-status" class="mt-2 min-h-5 text-xs text-slate-400" role="status" aria-live="polite"></p><button class="btn btn-primary mt-3" type="button" data-action="save-ai-draft">${icon("check")} Save reviewed draft</button></div>`;
     return `<div class="grid gap-4 lg:grid-cols-2"><article><div class="eyebrow">Shared data</div><h2 class="mt-1 text-lg font-bold">Backup & synchronization</h2><p class="mt-2 text-xs leading-relaxed text-slate-400">Export a versioned snapshot or import a validated JSON file. Imports replace shared class data for every visitor after server validation.</p><button class="btn btn-primary mt-4" data-action="export">${icon("download")} Export class state</button><div id="drop-zone" class="drop-zone mt-4" tabindex="0">Drop a class-state JSON file here, or <button class="underline text-emerald-200" data-action="import">choose a file</button></div></article><article class="rounded-xl border border-rose-300/20 bg-rose-400/5 p-4"><div class="eyebrow text-rose-200">Caution</div><h2 class="mt-1 text-lg font-bold">Reset shared state</h2><p class="mt-2 text-xs leading-relaxed text-slate-400">This restores the official seed state and removes all shared announcements, edits, and schedule overrides.</p><button class="btn btn-danger mt-4" data-action="hard-reset">${icon("rotate-ccw")} Reset to defaults</button></article></div><p class="mt-5 text-[11px] text-slate-500">Schema v${state.schemaVersion} · Revision ${revision ?? "—"} · Updated ${esc(lastStateSync?new Date(lastStateSync).toLocaleTimeString():"—")}</p>`;
   }
   function renderEmergency() {
@@ -830,6 +881,11 @@
       $("#admin-ai-result").value=JSON.stringify(result.draft,null,2);
       status.textContent="Draft ready. Review and edit every field before saving.";
     }catch(error){
+      if(error.status===401){
+        currentSession={authenticated:false};
+        setRoleIndicator();
+        renderActiveView();
+      }
       status.textContent=error.status===429
         ?"Ai-Ai is currently assisting many CYB-202 administrators. Please try again in 10 seconds."
         :error.message||"Ai-Ai could not generate a draft.";
@@ -908,7 +964,7 @@
     if(role==="assistant"){
       const badge=document.createElement("span");
       badge.className="ai-message-badge";
-      badge.textContent="BETTIE";
+      badge.textContent=aiPersona==="admin"?"Ai-Ai":"BETTIE";
       const content=document.createElement("div");
       content.className="ai-message-content";
       content.innerHTML=renderMarkdown(text);
@@ -983,9 +1039,31 @@
     panel.hidden=false;
     $("#ai-assistant-trigger").setAttribute("aria-expanded","true");
     if(!$("#ai-chat-messages").childElementCount){
-      appendAiMessage("assistant","Hi! I’m BETTIE, your read-only CYB-202 study assistant. I can help with your timetable, reminders, subject know-hows, and Cyber Terminal references.");
+      appendAiMessage("assistant",aiPersona==="admin"
+        ?"Hi! I’m Ai-Ai delas Alas, your administrator drafting helper. Send a request to prepare a reminder, schedule override, or reviewer note for review in the Admin Portal."
+        :"Hi! I’m BETTIE, your read-only CYB-202 study assistant. I can help with your timetable, reminders, subject know-hows, and Cyber Terminal references.");
     }
     $("#ai-chat-input").focus();
+  }
+  function openAdminAiWorkspace(prompt="") {
+    if(!Security.requireAdmin("open the Ai-Ai drafting workspace")){
+      loginModal();
+      return;
+    }
+    adminTab="ai";
+    if(activeView!=="admin")switchView("admin");
+    else if(!$('[data-form="admin-ai"]'))renderActiveView();
+    const promptInput=$("#admin-ai-prompt");
+    if(prompt){
+      promptInput.value=prompt.slice(0,2000);
+      $("#admin-ai-result").value="";
+      $("#admin-ai-status").textContent="";
+      $("#ai-chat-input").value="";
+    }
+    closeAiAssistant();
+    promptInput.focus();
+    if(prompt.length>2000)toast("Draft request loaded with text beyond 2,000 characters omitted.");
+    else if(prompt)toast("Draft request loaded. Choose a type and generate it for review.");
   }
   function closeAiAssistant() {
     $("#ai-chat").hidden=true;
@@ -999,11 +1077,17 @@
   async function sendAiMessage(text) {
     const question=text.trim();
     if(!question||aiBusy)return;
+    if(Security.isAdminAuthenticated()){
+      openAdminAiWorkspace(question);
+      return;
+    }
     aiMessages.push({role:"user",text:question});
     trimAiHistory();
     appendAiMessage("user",question);
     const input=$("#ai-chat-input"),send=$("#ai-chat-send");
     const thinking=appendAiMessage("assistant","BETTIE is generating a response…");
+    const requestController=new AbortController();
+    aiRequestController=requestController;
     aiBusy=true;input.disabled=true;send.disabled=true;
     send.classList.add("is-loading");
     send.setAttribute("aria-label","BETTIE is generating response");
@@ -1015,9 +1099,11 @@
         body:JSON.stringify({messages:aiMessages}),
         credentials:"same-origin",
         cache:"no-store",
-        redirect:"error"
+        redirect:"error",
+        signal:requestController.signal
       });
       const result=await response.json();
+      if(aiRequestController!==requestController)return;
       if(!response.ok){
         const error=new Error(result.details||result.error||`Request failed (${response.status}).`);
         error.status=response.status;
@@ -1030,17 +1116,21 @@
       thinking.querySelector(".ai-message-content").innerHTML=renderMarkdown(result.answer);
       $("#ai-chat-messages").scrollTop=$("#ai-chat-messages").scrollHeight;
     }catch(error){
+      if(aiRequestController!==requestController||error.name==="AbortError")return;
       aiMessages.pop();
       thinking.classList.add("error");
       thinking.textContent=error.code==="AI_BUSY"||error.status===429
         ?"BETTIE is currently assisting many CYB-202 students! Please try your question again in 10 seconds."
         :error.message||"BETTIE could not answer. Please try again.";
     }finally{
-      aiBusy=false;input.disabled=false;send.disabled=false;send.classList.remove("is-loading");
-      send.setAttribute("aria-label","Send message");
-      send.innerHTML=icon("send");
-      refreshIcons(send);
-      input.value="";input.focus();
+      if(aiRequestController===requestController){
+        aiRequestController=null;
+        aiBusy=false;input.disabled=false;send.disabled=false;send.classList.remove("is-loading");
+        send.setAttribute("aria-label","Send message");
+        send.innerHTML=icon("send");
+        refreshIcons(send);
+        input.value="";input.focus();
+      }
     }
   }
   async function initialize() {
@@ -1109,7 +1199,7 @@
     const filter=event.target.closest("[data-filter-reminders]");
     if(filter){reminderFilter=filter.dataset.filterReminders;renderActiveView();return;}
     const adminTabButton=event.target.closest("[data-admin-tab]");
-    if(adminTabButton){if(!Security.requireAdmin("open an admin management tab")){loginModal();return;}adminTab=adminTabButton.dataset.adminTab;if(activeView!=="admin")switchView("admin");else renderActiveView();return;}
+    if(adminTabButton){if(!Security.requireAdmin("open an admin management tab")){loginModal();return;}if(adminTabButton.dataset.adminTab==="ai"){openAdminAiWorkspace();return;}adminTab=adminTabButton.dataset.adminTab;if(activeView!=="admin")switchView("admin");else renderActiveView();return;}
     const actionButton=event.target.closest("[data-action]");
     if(actionButton){handleAction(actionButton.dataset.action,actionButton);return;}
     const paletteButton=event.target.closest("[data-palette-index]");
