@@ -7,16 +7,7 @@
   const clone = value => JSON.parse(JSON.stringify(value));
   const esc = value => Security.escapeHTML(value);
   const icon = (name, cls = "h-4 w-4") => `<i data-lucide="${esc(name)}" class="${cls}" aria-hidden="true"></i>`;
-  const themeStorageKey = "cyb202_user_theme";
   const dismissedBannerKey = "cyb202_dismissed_banner";
-  const themeNames = ["theme-emerald","theme-cyan","theme-violet","theme-amber","theme-rose"];
-  const themeColors = {
-    "theme-emerald":"#10b981",
-    "theme-cyan":"#06b6d4",
-    "theme-violet":"#8b5cf6",
-    "theme-amber":"#f59e0b",
-    "theme-rose":"#f43f5e"
-  };
   const arcadeStorageKey = "cyb202_arcade_v1";
   const gachaCatalog = [
     {id:"avatar-stargazer",name:"Stargazer",type:"avatar",rarity:"Common",icon:"🌙"},
@@ -66,8 +57,6 @@
   let aiBusy = false;
   let aiPersona = "student";
   let aiRequestController = null;
-  let selectedTheme = "theme-emerald";
-  let themeStorageWarningShown = false;
   let arcadeSave = loadArcadeSave();
   let memoryGame = null;
   let arcadeCleanup = null;
@@ -79,44 +68,6 @@
     element.textContent = message;
     $("#toast-mount").append(element);
     window.setTimeout(() => element.remove(), 4200);
-  }
-  function setThemeColor(color) {
-    const [red,green,blue]=color.slice(1).match(/.{2}/g).map(channel=>parseInt(channel,16));
-    const root=document.documentElement;
-    root.style.setProperty("--accent-primary",color);
-    root.style.setProperty("--accent-glow",`rgba(${red},${green},${blue},.2)`);
-    root.style.setProperty("--accent-surface",`rgba(${red},${green},${blue},.12)`);
-    root.style.setProperty("--text-accent",`#${[red,green,blue].map(channel=>Math.round(channel+(255-channel)*.58).toString(16).padStart(2,"0")).join("")}`);
-  }
-  function applyTheme(theme,persist=true) {
-    const isCustom=typeof theme==="string"&&/^custom:#[\da-f]{6}$/i.test(theme);
-    if(!themeNames.includes(theme)&&!isCustom)theme="theme-emerald";
-    const root=document.documentElement;
-    for(const name of themeNames)root.classList.remove(name);
-    for(const property of ["--accent-primary","--accent-glow","--accent-surface","--text-accent"])root.style.removeProperty(property);
-    if(isCustom)setThemeColor(theme.slice(7));
-    else root.classList.add(theme);
-    selectedTheme=theme;
-    const color=isCustom?theme.slice(7):themeColors[theme];
-    $("#custom-theme-color").value=color;
-    $$("[data-theme]").forEach(button=>button.setAttribute("aria-pressed",String(button.dataset.theme===theme)));
-    if(persist){
-      try{localStorage.setItem(themeStorageKey,theme);}
-      catch(error){
-        console.error("Theme preference could not be saved locally:",error);
-        if(!themeStorageWarningShown){toast("The theme changed for this visit, but browser storage prevented saving it.","warning");themeStorageWarningShown=true;}
-      }
-    }
-    $("#appearance-status").textContent=isCustom?"Custom accent color selected.":`${theme.replace("theme-","")} theme selected.`;
-  }
-  function loadThemePreference() {
-    try{
-      const saved=localStorage.getItem(themeStorageKey);
-      if(saved)applyTheme(saved,false);
-    }catch(error){
-      console.error("Theme preference could not be loaded locally:",error);
-      toast("Saved appearance preferences could not be read from browser storage.","warning");
-    }
   }
   function closeAppearancePanel() {
     $("#appearance-panel").hidden=true;
@@ -333,7 +284,7 @@
   }
   function trackerMarkup(now = new Date()) {
     const upcoming = nextOccurrence(now);
-    if (!upcoming) return `<article class="panel-card p-5"><div class="eyebrow">Live timetable</div><h2 class="mt-2 text-lg font-bold">No upcoming class found</h2><p class="mt-2 text-sm text-slate-400">Check the timetable or confirm schedule changes with your instructor.</p></article>`;
+    if (!upcoming) return `<article class="panel-card p-5"><div class="eyebrow">Live timetable</div><h2 class="mt-2 text-lg font-bold">No upcoming class found</h2><p class="mt-2 text-sm text-zinc-400">Check the timetable or confirm schedule changes with your instructor.</p></article>`;
     const nowMs = now.getTime();
     const inProgress = nowMs >= upcoming.start.getTime() && nowMs < upcoming.end.getTime();
     const gapMinutes = Math.max(0, Math.floor((upcoming.start.getTime() - nowMs) / 60_000));
@@ -342,16 +293,16 @@
     const status = inProgress ? "Now in session" : gapMinutes < 60 ? `Up next in ${gapMinutes} min` : `Up next · ${dayDateLabel(upcoming.date)}`;
     const breakText = inProgress ? `Class ends in ${Math.max(1, Math.ceil((upcoming.end - now) / 60_000))} min` : gapMinutes >= 60 ? `Study gap · ${Math.floor(gapMinutes/60)}h ${gapMinutes%60}m` : "Use the short gap to get settled";
     return `<article class="panel-card relative overflow-hidden p-5 md:p-6">
-      <div class="pointer-events-none absolute -right-12 -top-16 h-52 w-52 rounded-full bg-emerald-400/10 blur-3xl"></div>
-      <div class="relative flex items-center justify-between gap-3"><span class="eyebrow">Live timetable · ${esc(dayDateLabel(upcoming.date))}</span><span class="tag ${inProgress?"tag-low":"tag"}">${inProgress?'<span class="h-1.5 w-1.5 animate-pulse rounded-full bg-emerald-300"></span>NOW':"NEXT"}</span></div>
-      <div class="relative mt-5"><div class="text-xs text-emerald-200">${esc(status)}</div><h2 class="mt-1 text-2xl font-extrabold tracking-tight">${esc(upcoming.subject)}</h2><p class="mt-1 text-sm text-slate-300">${esc(upcoming.title)}</p></div>
-      <div class="relative mt-5 flex flex-wrap gap-x-5 gap-y-2 text-xs text-slate-400">
+      <div class="pointer-events-none absolute -right-12 -top-16 h-52 w-52 rounded-full bg-white/5 blur-3xl"></div>
+      <div class="relative flex items-center justify-between gap-3"><span class="eyebrow">Live timetable · ${esc(dayDateLabel(upcoming.date))}</span><span class="tag ${inProgress?"tag-low":"tag"}">${inProgress?'<span class="h-1.5 w-1.5 animate-pulse rounded-full bg-white"></span>NOW':"NEXT"}</span></div>
+      <div class="relative mt-5"><div class="text-xs text-zinc-200">${esc(status)}</div><h2 class="mt-1 text-2xl font-extrabold tracking-tight">${esc(upcoming.subject)}</h2><p class="mt-1 text-sm text-zinc-300">${esc(upcoming.title)}</p></div>
+      <div class="relative mt-5 flex flex-wrap gap-x-5 gap-y-2 text-xs text-zinc-400">
         <span class="flex items-center gap-1.5">${icon("clock")} ${esc(timeText(upcoming.start.toTimeString().slice(0,5)))}–${esc(timeText(upcoming.end.toTimeString().slice(0,5)))}</span>
-        <span class="group relative flex cursor-help items-center gap-1.5" title="${esc(roomGuide(upcoming.override?.status==="room" ? upcoming.override.room : upcoming.room))}">${icon("map-pin")} ${esc(upcoming.override?.status === "online" ? "Online / MS Teams" : upcoming.override?.status === "room" ? upcoming.override.room : upcoming.room)} <span class="text-slate-600">ⓘ</span></span>
+        <span class="group relative flex cursor-help items-center gap-1.5" title="${esc(roomGuide(upcoming.override?.status==="room" ? upcoming.override.room : upcoming.room))}">${icon("map-pin")} ${esc(upcoming.override?.status === "online" ? "Online / MS Teams" : upcoming.override?.status === "room" ? upcoming.override.room : upcoming.room)} <span class="text-zinc-600">ⓘ</span></span>
         <span class="flex items-center gap-1.5">${icon("coffee")} ${esc(breakText)}</span>
       </div>
-      ${upcoming.override?.message ? `<p class="relative mt-3 rounded-xl bg-amber-400/10 p-3 text-xs text-amber-100">${esc(upcoming.override.message)}</p>` : ""}
-      ${inProgress ? `<div class="relative mt-5"><div class="progress-track"><div class="progress-bar" style="width:${progress}%"></div></div><div class="mt-2 flex justify-between text-[10px] text-slate-500"><span>Class progress</span><span>${progress}%</span></div></div>` : ""}
+      ${upcoming.override?.message ? `<p class="relative mt-3 rounded-xl bg-white/5 p-3 text-xs text-zinc-100">${esc(upcoming.override.message)}</p>` : ""}
+      ${inProgress ? `<div class="relative mt-5"><div class="progress-track"><div class="progress-bar" style="width:${progress}%"></div></div><div class="mt-2 flex justify-between text-[10px] text-zinc-500"><span>Class progress</span><span>${progress}%</span></div></div>` : ""}
     </article>`;
   }
   function todayTimeline(now = new Date()) {
@@ -367,10 +318,10 @@
       const active = !override && clockMinute() >= minuteOfDay(meeting.start) && clockMinute() < minuteOfDay(meeting.end);
       const canceled = override?.status === "cancelled";
       const room = override?.status==="online" ? "Online / MS Teams" : override?.status==="room" ? override.room : meeting.room;
-      return `${gapMinutes>0?`<div class="ml-5 flex items-center gap-2 py-0.5 text-[10px] text-violet-200">${icon("coffee","h-3 w-3")} Break / study gap · ${gapMinutes} min</div>`:""}<article class="relative flex gap-3"><span class="timeline-dot ${active?"active":""}"></span><div class="schedule-slot min-w-0 flex-1 rounded-xl border border-slate-700/40 p-3 ${active?"active":""} ${canceled?"opacity-50":""}">
+      return `${gapMinutes>0?`<div class="ml-5 flex items-center gap-2 py-0.5 text-[10px] text-zinc-300">${icon("coffee","h-3 w-3")} Break / study gap · ${gapMinutes} min</div>`:""}<article class="relative flex gap-3"><span class="timeline-dot ${active?"active":""}"></span><div class="schedule-slot min-w-0 flex-1 rounded-xl border border-zinc-700/40 p-3 ${active?"active":""} ${canceled?"opacity-50":""}">
         <div class="flex flex-wrap items-center justify-between gap-2"><span class="text-xs font-semibold">${esc(timeText(meeting.start))}–${esc(timeText(meeting.end))}</span>${active?'<span class="tag tag-low">Now</span>':canceled?'<span class="tag tag-critical">Cancelled</span>':""}</div>
         <h3 class="mt-1 text-sm font-semibold">${esc(meeting.subject)} · ${esc(meeting.title)}</h3>
-        <div class="mt-1 flex flex-wrap gap-3 text-[11px] text-slate-400"><span>${esc(room)}</span>${override?.message?`<span class="text-amber-200">${esc(override.message)}</span>`:""}</div>
+        <div class="mt-1 flex flex-wrap gap-3 text-[11px] text-zinc-400"><span>${esc(room)}</span>${override?.message?`<span class="text-zinc-200">${esc(override.message)}</span>`:""}</div>
       </div></article>`;
     });
     return `<div class="relative space-y-3 pl-1"><span class="timeline-line" aria-hidden="true"></span>${rows.join("")}</div>`;
@@ -383,9 +334,9 @@
         ${actions && Security.isAdminAuthenticated()?`<div class="flex gap-1"><button class="btn !p-2" data-action="edit-reminder" data-id="${esc(item.id)}" aria-label="Edit reminder">${icon("pencil")}</button><button class="btn !p-2" data-action="pin-reminder" data-id="${esc(item.id)}" aria-label="Toggle pin">${icon(item.pinned?"pin-off":"pin")}</button><button class="btn btn-danger !p-2" data-action="delete-reminder" data-id="${esc(item.id)}" aria-label="Delete reminder">${icon("trash-2")}</button></div>`:""}
       </div>
       <h3 class="mt-3 font-semibold">${esc(item.title)}</h3>
-      <div class="mt-1 text-[11px] text-slate-400">${esc(item.subject || "ALL")} · ${item.dueAt?`${esc(dateText(item.dueAt,{weekday:"short",month:"short",day:"numeric",hour:"numeric",minute:"2-digit"}))} · ${esc(dateUntil(item.dueAt))}`:"No deadline provided"}</div>
-      <p class="mt-3 whitespace-pre-wrap text-sm leading-relaxed text-slate-300">${esc(item.description)}</p>
-      ${url?`<a class="mt-3 inline-flex items-center gap-1.5 text-xs text-cyan-200 hover:text-cyan-100" href="${esc(url)}" target="_blank" rel="noopener noreferrer">${icon("external-link")} Open class resource</a>`:""}
+      <div class="mt-1 text-[11px] text-zinc-400">${esc(item.subject || "ALL")} · ${item.dueAt?`${esc(dateText(item.dueAt,{weekday:"short",month:"short",day:"numeric",hour:"numeric",minute:"2-digit"}))} · ${esc(dateUntil(item.dueAt))}`:"No deadline provided"}</div>
+      <p class="mt-3 whitespace-pre-wrap text-sm leading-relaxed text-zinc-300">${esc(item.description)}</p>
+      ${url?`<a class="mt-3 inline-flex items-center gap-1.5 text-xs text-zinc-200 hover:text-white" href="${esc(url)}" target="_blank" rel="noopener noreferrer">${icon("external-link")} Open class resource</a>`:""}
     </article>`;
   }
   function renderToday() {
@@ -401,10 +352,10 @@
         </div>
         <div class="space-y-4 xl:col-span-2">
           <section class="panel-card p-5"><div class="flex items-center justify-between gap-2"><div><div class="eyebrow">High priority · under 48 hours</div><h2 class="mt-1 text-lg font-bold">Class reminders</h2></div><button class="btn !px-2.5 !py-2" data-view="reminders" aria-label="View all reminders">${icon("arrow-right")}</button></div>
-            <div class="mt-4 space-y-3">${soon.length?soon.map(item=>`<div class="border-t border-slate-700/40 pt-3 first:border-0 first:pt-0">${reminderCard(item,false)}</div>`).join(""):`<div class="empty-state">No high-priority reminders are due in the next 48 hours.</div>`}</div>
+            <div class="mt-4 space-y-3">${soon.length?soon.map(item=>`<div class="border-t border-zinc-700/40 pt-3 first:border-0 first:pt-0">${reminderCard(item,false)}</div>`).join(""):`<div class="empty-state">No high-priority reminders are due in the next 48 hours.</div>`}</div>
           </section>
-          <section class="panel-card p-5"><div class="eyebrow">Focus room</div><div class="mt-1 flex items-center justify-between"><h2 class="text-lg font-bold">Pomodoro session</h2><span id="timer-kind-label" class="tag tag-low">${timerKind==="focus"?"Focus":"Break"}</span></div><div id="timer-display" class="timer-face mt-5 text-center text-emerald-200">${timerText()}</div><div class="mt-5 flex justify-center gap-2"><button class="btn btn-primary" data-action="timer-toggle">${icon(timerHandle?"pause":"play")} ${timerHandle?"Pause":"Start focus"}</button><button class="btn" data-action="timer-reset">Reset</button></div>
-            <div class="mt-4 grid grid-cols-3 gap-2"><button class="btn !px-2 !text-xs" data-action="sound" data-sound="rain">${icon("cloud-rain")} Cyber rain</button><button class="btn !px-2 !text-xs" data-action="sound" data-sound="brown">${icon("waves")} Brown noise</button><button class="btn !px-2 !text-xs" data-action="sound-stop">${icon("volume-x")} Stop</button></div><p class="mt-3 text-center text-[10px] text-slate-500">Sound is generated locally; stop it whenever you like.</p>
+          <section class="panel-card p-5"><div class="eyebrow">Focus room</div><div class="mt-1 flex items-center justify-between"><h2 class="text-lg font-bold">Pomodoro session</h2><span id="timer-kind-label" class="tag tag-low">${timerKind==="focus"?"Focus":"Break"}</span></div><div id="timer-display" class="timer-face mt-5 text-center text-zinc-100">${timerText()}</div><div class="mt-5 flex justify-center gap-2"><button class="btn btn-primary" data-action="timer-toggle">${icon(timerHandle?"pause":"play")} ${timerHandle?"Pause":"Start focus"}</button><button class="btn" data-action="timer-reset">Reset</button></div>
+            <div class="mt-4 grid grid-cols-3 gap-2"><button class="btn !px-2 !text-xs" data-action="sound" data-sound="rain">${icon("cloud-rain")} Cyber rain</button><button class="btn !px-2 !text-xs" data-action="sound" data-sound="brown">${icon("waves")} Brown noise</button><button class="btn !px-2 !text-xs" data-action="sound-stop">${icon("volume-x")} Stop</button></div><p class="mt-3 text-center text-[10px] text-zinc-500">Sound is generated locally; stop it whenever you like.</p>
           </section>
         </div>
       </div>`;
@@ -419,7 +370,7 @@
         return `<section class="panel-card p-4"><div class="mb-3 flex items-center justify-between"><h2 class="font-bold">${names[day]}</h2><span class="tag">${list.length} ${list.length===1?"class":"classes"}</span></div>
           <div class="space-y-2">${list.map(item=>{
             const overrides=state.scheduleOverrides.filter(o=>o.scheduleId===item.id).sort((a,b)=>a.date.localeCompare(b.date)).slice(0,2);
-            return `<article class="rounded-xl border border-slate-700/40 bg-slate-950/20 p-3"><div class="text-xs font-semibold text-emerald-200">${esc(timeText(item.start))}–${esc(timeText(item.end))}</div><h3 class="mt-1 text-sm font-semibold">${esc(item.title)}</h3><div class="text-[11px] text-slate-400">${esc(item.subject)} · Code ${esc(item.code)}</div><div class="mt-2 flex items-center gap-1.5 text-xs text-slate-300" title="${esc(roomGuide(item.room))}">${icon("map-pin","h-3.5 w-3.5 text-cyan-200")} ${esc(item.room)}</div>${overrides.length?`<div class="mt-2 border-t border-slate-700/40 pt-2 text-[10px] text-amber-200">${overrides.map(o=>`${esc(o.date)} · ${esc(o.status)}${o.room?` · ${esc(o.room)}`:""}${o.message?` · ${esc(o.message)}`:""}`).join("<br>")}</div>`:""}</article>`;
+            return `<article class="rounded-xl border border-zinc-700/40 bg-zinc-950/20 p-3"><div class="text-xs font-semibold text-zinc-200">${esc(timeText(item.start))}–${esc(timeText(item.end))}</div><h3 class="mt-1 text-sm font-semibold">${esc(item.title)}</h3><div class="text-[11px] text-zinc-400">${esc(item.subject)} · Code ${esc(item.code)}</div><div class="mt-2 flex items-center gap-1.5 text-xs text-zinc-300" title="${esc(roomGuide(item.room))}">${icon("map-pin","h-3.5 w-3.5 text-zinc-200")} ${esc(item.room)}</div>${overrides.length?`<div class="mt-2 border-t border-zinc-700/40 pt-2 text-[10px] text-zinc-200">${overrides.map(o=>`${esc(o.date)} · ${esc(o.status)}${o.room?` · ${esc(o.room)}`:""}${o.message?` · ${esc(o.message)}`:""}`).join("<br>")}</div>`:""}</article>`;
           }).join("")}</div></section>`;
       }).join("")}</div>`;
   }
@@ -459,11 +410,11 @@
   function renderReviews() {
     return `${viewHeading("Subject review & know-hows","Course-by-course refresher","Lecture anchors, formulas, concepts, and code syntax for the section. Confirm course-specific content with the instructor.",Security.isAdminAuthenticated()?`<button class="btn btn-primary" data-action="new-review">${icon("plus")} Add review guide</button>`:"")}
       <div class="grid gap-3 lg:grid-cols-2">${state.reviews.map(item=>`<details class="panel-card group p-5">
-        <summary class="list-none cursor-pointer"><div class="flex items-start justify-between gap-3"><div><div class="eyebrow">${esc(item.subject)}</div><h2 class="mt-1 font-bold">${esc(item.title)}</h2></div><span class="text-slate-500 transition-transform group-open:rotate-180">${icon("chevron-down")}</span></div><p class="mt-3 text-sm leading-relaxed text-slate-400">${esc(item.summary)}</p></summary>
-        <div class="mt-4 border-t border-slate-700/40 pt-4"><div class="grid gap-4 sm:grid-cols-2"><div><h3 class="mb-2 text-xs font-semibold">Key lecture topics</h3><ul class="space-y-1.5">${item.topics.map(topic=>`<li class="text-xs text-slate-400"><span class="mr-2 text-emerald-300">•</span>${esc(topic)}</li>`).join("")}</ul></div><div><h3 class="mb-2 text-xs font-semibold">Formula sheet / anchor</h3><pre class="code-sample">${esc(item.formulas)}</pre></div></div>
+        <summary class="list-none cursor-pointer"><div class="flex items-start justify-between gap-3"><div><div class="eyebrow">${esc(item.subject)}</div><h2 class="mt-1 font-bold">${esc(item.title)}</h2></div><span class="text-zinc-500 transition-transform group-open:rotate-180">${icon("chevron-down")}</span></div><p class="mt-3 text-sm leading-relaxed text-zinc-400">${esc(item.summary)}</p></summary>
+        <div class="mt-4 border-t border-zinc-700/40 pt-4"><div class="grid gap-4 sm:grid-cols-2"><div><h3 class="mb-2 text-xs font-semibold">Key lecture topics</h3><ul class="space-y-1.5">${item.topics.map(topic=>`<li class="text-xs text-zinc-400"><span class="mr-2 text-zinc-200">•</span>${esc(topic)}</li>`).join("")}</ul></div><div><h3 class="mb-2 text-xs font-semibold">Formula sheet / anchor</h3><pre class="code-sample">${esc(item.formulas)}</pre></div></div>
           ${item.snippets.length?`<div class="mt-4"><h3 class="mb-2 text-xs font-semibold">Syntax snippets</h3>${item.snippets.map((snippet,index)=>`<div class="relative mb-2"><pre class="code-sample pr-12">${esc(snippet)}</pre><button class="btn absolute right-2 top-2 !p-2" data-action="copy-text" data-value="${esc(snippet)}" aria-label="Copy code snippet">${icon("copy","h-3.5 w-3.5")}</button></div>`).join("")}</div>`:""}
-          <div class="mt-3 flex flex-wrap gap-3">${item.downloadUrl&&Security.safeExternalURL(item.downloadUrl)?`<a class="inline-flex items-center gap-1.5 text-xs text-cyan-200" href="${esc(Security.safeExternalURL(item.downloadUrl))}" target="_blank" rel="noopener noreferrer">${icon("external-link")} Open linked guide</a>`:""}<button class="inline-flex items-center gap-1.5 text-xs text-cyan-200" data-action="download-guide" data-id="${esc(item.id)}">${icon("download")} Download text guide</button></div>
-          ${Security.isAdminAuthenticated()?`<div class="mt-4 flex gap-2 border-t border-slate-700/40 pt-3"><button class="btn" data-action="edit-review" data-id="${esc(item.id)}">${icon("pencil")} Edit</button><button class="btn btn-danger" data-action="delete-review" data-id="${esc(item.id)}">${icon("trash-2")} Delete</button></div>`:""}
+          <div class="mt-3 flex flex-wrap gap-3">${item.downloadUrl&&Security.safeExternalURL(item.downloadUrl)?`<a class="inline-flex items-center gap-1.5 text-xs text-zinc-200" href="${esc(Security.safeExternalURL(item.downloadUrl))}" target="_blank" rel="noopener noreferrer">${icon("external-link")} Open linked guide</a>`:""}<button class="inline-flex items-center gap-1.5 text-xs text-zinc-200" data-action="download-guide" data-id="${esc(item.id)}">${icon("download")} Download text guide</button></div>
+          ${Security.isAdminAuthenticated()?`<div class="mt-4 flex gap-2 border-t border-zinc-700/40 pt-3"><button class="btn" data-action="edit-review" data-id="${esc(item.id)}">${icon("pencil")} Edit</button><button class="btn btn-danger" data-action="delete-review" data-id="${esc(item.id)}">${icon("trash-2")} Delete</button></div>`:""}
         </div></details>`).join("")||`<div class="empty-state lg:col-span-2">No subject guides are available.</div>`}</div>`;
   }
   function loadArcadeSave() {
@@ -508,14 +459,14 @@
     return `${viewHeading("Take a breather","Arcade & Gacha Lounge","Play a couple of calm, non-cyber mini-games, earn Study Coins, and collect cosmic keepsakes. Progress is saved in this browser.")}
       <div class="arcade-wallet panel-card mb-4"><span class="arcade-coin" aria-hidden="true">✦</span><strong><span id="arcade-coins">${arcadeSave.coins}</span> Study Coins</strong><span class="arcade-wallet-note">Earn coins by playing and matching.</span></div>
       <div class="grid gap-4 xl:grid-cols-2">
-        <section class="panel-card p-4 md:p-5"><div class="flex flex-wrap items-start justify-between gap-3"><div><div class="eyebrow">Cosmic Zen Jumper</div><h2 class="mt-1 text-xl font-bold">A little bounce among the stars</h2><p class="mt-1 text-xs text-slate-400">Move with ← → or A / D. Touch the canvas to hop sideways and gather stars.</p></div><span class="tag tag-low">+5 coins / star</span></div>
+        <section class="panel-card p-4 md:p-5"><div class="flex flex-wrap items-start justify-between gap-3"><div><div class="eyebrow">Cosmic Zen Jumper</div><h2 class="mt-1 text-xl font-bold">A little bounce among the stars</h2><p class="mt-1 text-xs text-zinc-400">Move with ← → or A / D. Touch the canvas to hop sideways and gather stars.</p></div><span class="tag tag-low">+5 coins / star</span></div>
           <div class="jumper-wrap mt-4"><canvas id="jumper-canvas" class="jumper-canvas" aria-label="Cosmic Zen Jumper game canvas"></canvas><div class="jumper-hud"><span>Stars <strong id="jumper-score">0</strong></span><button type="button" class="btn !px-2 !py-1" data-action="jumper-restart">Restart</button></div></div>
         </section>
-        <section class="panel-card p-4 md:p-5"><div class="flex flex-wrap items-start justify-between gap-3"><div><div class="eyebrow">Memory Constellation</div><h2 class="mt-1 text-xl font-bold">Match the night sky</h2><p class="mt-1 text-xs text-slate-400">Find matching pairs. Consecutive matches build a combo reward.</p></div><span id="memory-status" class="tag tag-low">Match a pair for coins</span></div>
+        <section class="panel-card p-4 md:p-5"><div class="flex flex-wrap items-start justify-between gap-3"><div><div class="eyebrow">Memory Constellation</div><h2 class="mt-1 text-xl font-bold">Match the night sky</h2><p class="mt-1 text-xs text-zinc-400">Find matching pairs. Consecutive matches build a combo reward.</p></div><span id="memory-status" class="tag tag-low">Match a pair for coins</span></div>
           <div id="memory-board" class="memory-board mt-4" aria-label="Memory Constellation cards"></div><button type="button" class="btn mt-3" data-action="memory-restart">New constellation</button>
         </section>
       </div>
-      <section class="panel-card gacha-panel mt-4 p-4 md:p-6"><div class="grid gap-5 md:grid-cols-[minmax(0,1fr)_15rem] md:items-center"><div><div class="eyebrow">Cosmic collection · Summon</div><h2 class="mt-1 text-2xl font-extrabold">A tiny surprise from the stars</h2><p class="mt-2 max-w-2xl text-sm text-slate-400">Pull avatars, themes, and badges across five rarity tiers. A Legendary item is guaranteed every 50 pulls; a 10x pull guarantees at least one Rare or better.</p><div class="mt-4 flex flex-wrap gap-2"><button type="button" class="btn btn-primary" data-action="gacha-1x">1x Pull · 100 Coins</button><button type="button" class="btn" data-action="gacha-10x">10x Pull · 900 Coins</button></div><p id="gacha-pity" class="mt-3 text-xs text-slate-400" role="status">${arcadeSave.pity} / 50 pulls to Legendary</p><p id="gacha-status" class="mt-1 min-h-5 text-xs text-cyan-200" aria-live="polite"></p></div><div class="summon-chamber" id="summon-chamber" aria-hidden="true"><div class="summon-orb"><span>✦</span></div><div class="summon-ring ring-one"></div><div class="summon-ring ring-two"></div><div class="summon-glow"></div></div></div><div id="gacha-results" class="gacha-results mt-4" aria-live="polite"></div></section>
+      <section class="panel-card gacha-panel mt-4 p-4 md:p-6"><div class="grid gap-5 md:grid-cols-[minmax(0,1fr)_15rem] md:items-center"><div><div class="eyebrow">Cosmic collection · Summon</div><h2 class="mt-1 text-2xl font-extrabold">A tiny surprise from the stars</h2><p class="mt-2 max-w-2xl text-sm text-zinc-400">Pull avatars, themes, and badges across five rarity tiers. A Legendary item is guaranteed every 50 pulls; a 10x pull guarantees at least one Rare or better.</p><div class="mt-4 flex flex-wrap gap-2"><button type="button" class="btn btn-primary" data-action="gacha-1x">1x Pull · 100 Coins</button><button type="button" class="btn" data-action="gacha-10x">10x Pull · 900 Coins</button></div><p id="gacha-pity" class="mt-3 text-xs text-zinc-400" role="status">${arcadeSave.pity} / 50 pulls to Legendary</p><p id="gacha-status" class="mt-1 min-h-5 text-xs text-zinc-200" aria-live="polite"></p></div><div class="summon-chamber" id="summon-chamber" aria-hidden="true"><div class="summon-orb"><span>✦</span></div><div class="summon-ring ring-one"></div><div class="summon-ring ring-two"></div><div class="summon-glow"></div></div></div><div id="gacha-results" class="gacha-results mt-4" aria-live="polite"></div></section>
       <section class="panel-card mt-4 p-4 md:p-5">      <div class="flex items-end justify-between gap-3"><div><div class="eyebrow">Collection Codex</div><h2 class="mt-1 text-xl font-bold">Your cosmic keepsakes</h2></div><span class="tag"><span id="codex-count">${unlocked.size}</span> / ${gachaCatalog.length} collected</span></div>
         <div class="codex-grid mt-4">${gachaCatalog.map(item=>unlocked.has(item.id)
           ?`<article class="codex-item rarity-${item.rarity.toLowerCase()}"><span class="codex-icon" aria-hidden="true">${item.icon}</span><strong>${esc(item.name)}</strong><small>${esc(item.type)} · ${esc(rarityLabel(item.rarity))}</small></article>`
@@ -667,31 +618,31 @@
         if(player.y-camera>height+60)ended=true;
       }
       const sky=context.createLinearGradient(0,0,0,height);
-      sky.addColorStop(0,"#101a35");sky.addColorStop(1,"#172447");
+      sky.addColorStop(0,"#09090b");sky.addColorStop(1,"#1c1c20");
       context.fillStyle=sky;context.fillRect(0,0,width,height);
       for(let i=0;i<34;i++){
         const x=(i*83+21)%width,y=(i*137+timestamp*.008)%height;
-        context.fillStyle=`rgba(216,231,255,${.22+(i%4)*.12})`;
+        context.fillStyle=`rgba(228,228,231,${.22+(i%4)*.12})`;
         context.beginPath();context.arc(x,y,1+(i%3)*.35,0,Math.PI*2);context.fill();
       }
       for(const platform of platforms){
         const y=platform.y-camera;
-        context.fillStyle="#80e3ce";context.shadowColor="#67e8d4";context.shadowBlur=14;
+        context.fillStyle="#e4e4e7";context.shadowColor="#fff";context.shadowBlur=14;
         context.beginPath();context.roundRect(platform.x,y,platform.w,10,6);context.fill();
       }
       context.shadowBlur=0;
       for(const star of stars){
         const y=star.y-camera;
-        context.fillStyle="#fde68a";context.shadowColor="#fcd34d";context.shadowBlur=14;
+        context.fillStyle="#f4f4f5";context.shadowColor="#fff";context.shadowBlur=14;
         context.font="19px system-ui";context.textAlign="center";context.fillText("✦",star.x,y);
       }
-      context.shadowBlur=12;context.shadowColor="#c4b5fd";context.fillStyle="#ddd6fe";
+      context.shadowBlur=12;context.shadowColor="#fff";context.fillStyle="#d4d4d8";
       context.beginPath();context.roundRect(player.x,player.y-camera,player.w,player.h,12);context.fill();
-      context.shadowBlur=0;context.fillStyle="#4c1d95";
+      context.shadowBlur=0;context.fillStyle="#3f3f46";
       context.beginPath();context.arc(player.x+9,player.y-camera+11,2,0,Math.PI*2);context.arc(player.x+18,player.y-camera+11,2,0,Math.PI*2);context.fill();
       if(ended){
-        context.fillStyle="rgba(8,13,28,.72)";context.fillRect(0,0,width,height);
-        context.fillStyle="#f8fafc";context.textAlign="center";context.font="700 18px system-ui";context.fillText("A soft landing!",width/2,height/2-8);
+        context.fillStyle="rgba(0,0,0,.78)";context.fillRect(0,0,width,height);
+        context.fillStyle="#f4f4f5";context.textAlign="center";context.font="700 18px system-ui";context.fillText("A soft landing!",width/2,height/2-8);
         context.font="13px system-ui";context.fillText("Tap Restart to bounce again",width/2,height/2+18);
       }
       animationId=requestAnimationFrame(frame);
@@ -789,8 +740,12 @@
     canvas.width=1024;canvas.height=512;
     const context=canvas.getContext("2d");
     const base=context.createLinearGradient(0,0,0,512);
-    base.addColorStop(0,"#f7f5ef");base.addColorStop(.48,"#fffdf7");base.addColorStop(1,"#e8e3dd");
+    base.addColorStop(0,"#111113");base.addColorStop(.48,"#202024");base.addColorStop(1,"#121214");
     context.fillStyle=base;context.fillRect(0,0,1024,512);
+    const shading=context.createRadialGradient(512,256,80,512,256,520);
+    shading.addColorStop(0,"rgba(255,255,255,.06)");
+    shading.addColorStop(1,"rgba(0,0,0,.38)");
+    context.fillStyle=shading;context.fillRect(0,0,1024,512);
     for(let i=0;i<130;i++){
       const edge=Math.random()>.5;
       const x=edge?(Math.random()>.5?0:1024):Math.random()*1024;
@@ -803,13 +758,13 @@
         x+Math.cos(angle-.25)*length*.7,y+Math.sin(angle-.25)*length*.7,
         x+Math.cos(angle)*length,y+Math.sin(angle)*length
       );
-      context.strokeStyle=`rgba(${Math.random()>.5?"170,73,81":"184,94,97"},${.045+Math.random()*.09})`;
+      context.strokeStyle=`rgba(${Math.random()>.5?"228,228,231":"161,161,170"},${.045+Math.random()*.12})`;
       context.lineWidth=.6+Math.random()*1.3;context.stroke();
       if(i%3===0){
         const branchX=x+Math.cos(angle)*length*.52,branchY=y+Math.sin(angle)*length*.52;
         context.beginPath();context.moveTo(branchX,branchY);
         context.quadraticCurveTo(branchX+Math.cos(angle+1)*20,branchY+Math.sin(angle+1)*20,branchX+Math.cos(angle+1.35)*45,branchY+Math.sin(angle+1.35)*45);
-        context.strokeStyle="rgba(178,85,92,.07)";context.lineWidth=.7;context.stroke();
+        context.strokeStyle="rgba(228,228,231,.13)";context.lineWidth=.7;context.stroke();
       }
     }
     const texture=new THREE.CanvasTexture(canvas);
@@ -822,10 +777,10 @@
     const context=canvas.getContext("2d");
     const center=512;
     const gradient=context.createRadialGradient(center,center,115,center,center,505);
-    gradient.addColorStop(0,"#050812");gradient.addColorStop(.25,"#0a1427");gradient.addColorStop(.32,"#07394a");
-    gradient.addColorStop(.58,"#078b8b");gradient.addColorStop(.78,"#1b477d");gradient.addColorStop(1,"#101426");
+    gradient.addColorStop(0,"#020203");gradient.addColorStop(.25,"#101013");gradient.addColorStop(.32,"#252529");
+    gradient.addColorStop(.58,"#55555c");gradient.addColorStop(.78,"#242429");gradient.addColorStop(1,"#09090b");
     context.fillStyle=gradient;context.fillRect(0,0,1024,1024);
-    const colors=["#06b6d4","#10b981","#6366f1","#67e8f9","#34d399","#8b5cf6"];
+    const colors=["#e4e4e7","#a1a1aa","#71717a","#f4f4f5","#52525b","#d4d4d8"];
     for(let i=0;i<900;i++){
       const angle=Math.random()*Math.PI*2;
       const inner=142+Math.random()*60;
@@ -846,7 +801,7 @@
     context.beginPath();context.arc(center,center,140,0,Math.PI*2);
     context.fillStyle="#010208";context.fill();
     context.beginPath();context.arc(center,center,149,0,Math.PI*2);
-    context.strokeStyle="rgba(119,242,231,.85)";context.lineWidth=7;context.stroke();
+    context.strokeStyle="rgba(244,244,245,.85)";context.lineWidth=7;context.stroke();
     const texture=new THREE.CanvasTexture(canvas);
     texture.colorSpace=THREE.SRGBColorSpace;
     return texture;
@@ -885,13 +840,13 @@
         })
       );
       eye.add(cornea);
-      const ambient=new THREE.AmbientLight(0xd8efff,1.15);
+      const ambient=new THREE.AmbientLight(0xe4e4e7,1.05);
       scene.add(ambient);
-      const keyLight=new THREE.PointLight(0x06b6d4,25,18);
+      const keyLight=new THREE.PointLight(0xffffff,24,18);
       keyLight.position.set(-3,3,5);scene.add(keyLight);
-      const fillLight=new THREE.PointLight(0x10b981,18,18);
+      const fillLight=new THREE.PointLight(0xd4d4d8,16,18);
       fillLight.position.set(4,-2,4);scene.add(fillLight);
-      const rimLight=new THREE.PointLight(0x8b5cf6,21,18);
+      const rimLight=new THREE.PointLight(0xf4f4f5,20,18);
       rimLight.position.set(0,4,-3);scene.add(rimLight);
       const pointer={x:0,y:0};
       const target={x:0,y:0};
@@ -934,7 +889,7 @@
   }
   function renderAdmin() {
     if (!Security.isAdminAuthenticated()) {
-      return `${viewHeading("Administrator access","Admin command portal","Shared class changes are protected by server-side authentication. Students can browse this hub without signing in.")}<section class="panel-card mx-auto max-w-2xl p-6 md:p-8"><div class="flex h-12 w-12 items-center justify-center rounded-2xl bg-violet-400/10 text-violet-200">${icon("shield-lock","h-6 w-6")}</div><h2 class="mt-4 text-xl font-bold">Administrator sign-in required</h2><p class="mt-2 text-sm leading-relaxed text-slate-400">Authorized admins: Leander Dwayne Darell S. Guina, Class Representative, and Class Vice President. Credentials are set through the private server setup command; passphrases and password hashes are never sent to the browser.</p><button class="btn btn-primary mt-5" data-action="login">${icon("key-round")} Sign in securely</button></section>`;
+      return `${viewHeading("Administrator access","Admin command portal","Shared class changes are protected by server-side authentication. Students can browse this hub without signing in.")}<section class="panel-card mx-auto max-w-2xl p-6 md:p-8"><div class="flex h-12 w-12 items-center justify-center rounded-2xl bg-white/5 text-zinc-200">${icon("shield-lock","h-6 w-6")}</div><h2 class="mt-4 text-xl font-bold">Administrator sign-in required</h2><p class="mt-2 text-sm leading-relaxed text-zinc-400">Authorized admins: Leander Dwayne Darell S. Guina, Class Representative, and Class Vice President. Credentials are set through the private server setup command; passphrases and password hashes are never sent to the browser.</p><button class="btn btn-primary mt-5" data-action="login">${icon("key-round")} Sign in securely</button></section>`;
     }
     const tabs = [["reminders","Reminders"],["schedule","Schedule changes"],["reviews","Review guides"],["banner","Emergency banner"],["ai","Ai-Ai delas Alas"],["backup","Backup & reset"]];
     return `${viewHeading("Admin View · Authorized","Admin command portal","Publish updates to the whole section. Every change is validated and saved to shared server storage.",`<button class="btn" data-action="logout">${icon("log-out")} Sign out</button>`)}
@@ -942,12 +897,12 @@
       <section class="panel-card p-4 md:p-5">${renderAdminTab()}</section>`;
   }
   function renderAdminTab() {
-    if (adminTab === "reminders") return `<div class="mb-4 flex items-center justify-between gap-3"><div><h2 class="text-lg font-bold">Class-wide reminders</h2><p class="text-xs text-slate-400">Create, edit, pin, and remove announcements.</p></div><button class="btn btn-primary" data-action="new-reminder">${icon("plus")} New reminder</button></div><div class="space-y-3">${state.reminders.map(item=>reminderCard(item)).join("")||`<div class="empty-state">No reminders yet.</div>`}</div>`;
-    if (adminTab === "schedule") return `<div class="mb-4 flex items-center justify-between gap-3"><div><h2 class="text-lg font-bold">Temporary schedule changes</h2><p class="text-xs text-slate-400">Post a dated room change, online shift, absence, or cancellation. The base timetable remains intact.</p></div><button class="btn btn-primary" data-action="new-override">${icon("plus")} Add override</button></div><div class="mb-4 flex flex-wrap items-center justify-between gap-2"><span class="text-xs text-slate-400">${state.scheduleOverrides.length} active record(s)</span><button class="btn btn-danger" data-action="reset-overrides">${icon("rotate-ccw")} Reset to official timetable</button></div><div class="space-y-2">${state.scheduleOverrides.map(item=>`<article class="flex flex-wrap items-start justify-between gap-3 rounded-xl border border-slate-700/40 p-3"><div><span class="tag">${esc(item.date)}</span><span class="tag ml-1">${esc(item.status)}</span><h3 class="mt-2 text-sm font-semibold">${esc(item.scheduleId==="*"?"All classes":state.schedule.find(s=>s.id===item.scheduleId)?.title||"Removed class")}</h3><p class="mt-1 text-xs text-slate-400">${esc(item.room)} ${esc(item.message)}</p></div><div class="flex gap-2"><button class="btn !p-2" data-action="edit-override" data-id="${esc(item.id)}" aria-label="Edit override">${icon("pencil")}</button><button class="btn btn-danger !p-2" data-action="delete-override" data-id="${esc(item.id)}" aria-label="Delete override">${icon("trash-2")}</button></div></article>`).join("")||`<div class="empty-state">No temporary schedule changes.</div>`}</div>`;
-    if (adminTab === "reviews") return `<div class="mb-4 flex items-center justify-between gap-3"><div><h2 class="text-lg font-bold">Subject know-hows</h2><p class="text-xs text-slate-400">Maintain section lecture summaries, formulas, topics, and snippets.</p></div><button class="btn btn-primary" data-action="new-review">${icon("plus")} Add guide</button></div><div class="space-y-2">${state.reviews.map(item=>`<article class="flex flex-wrap items-center justify-between gap-2 rounded-xl border border-slate-700/40 p-3"><div><div class="eyebrow">${esc(item.subject)}</div><div class="mt-1 text-sm font-semibold">${esc(item.title)}</div></div><div class="flex gap-2"><button class="btn" data-action="edit-review" data-id="${esc(item.id)}">${icon("pencil")} Edit</button><button class="btn btn-danger !p-2" data-action="delete-review" data-id="${esc(item.id)}" aria-label="Delete guide">${icon("trash-2")}</button></div></article>`).join("")}</div>`;
-    if (adminTab === "banner") return `<div class="max-w-2xl"><div class="eyebrow">Emergency broadcast</div><h2 class="mt-1 text-lg font-bold">Section-wide alert banner</h2><p class="mt-2 text-xs leading-relaxed text-slate-400">Reserve for urgent changes such as suspensions, room shifts, or safety updates. Confirm facts through official HAU channels.</p><p class="mt-4 text-sm font-semibold" role="status" aria-live="polite">Status: <span class="tag ${state.emergencyBanner.active?"tag-critical":"tag-low"}">${state.emergencyBanner.active?"ACTIVE":"INACTIVE"}</span>${state.emergencyBanner.updatedAt?`<span class="ml-2 text-xs font-normal text-slate-500">Updated ${esc(new Date(state.emergencyBanner.updatedAt).toLocaleString(undefined,{dateStyle:"medium",timeStyle:"short"}))}</span>`:""}</p>${state.emergencyBanner.active?`<div class="mt-3 rounded-xl border border-rose-400/30 bg-rose-500/10 p-4 text-sm text-rose-100"><strong class="mr-2 text-xs uppercase">Live banner</strong>${esc(state.emergencyBanner.message)}</div>`:`<div class="mt-3 rounded-xl border border-slate-700/40 p-4 text-sm text-slate-500">No emergency notice is active.</div>`}<form class="mt-4 space-y-3" data-form="emergency"><label class="field-label">Banner message<textarea class="field min-h-24" name="message" maxlength="2000" placeholder="Example: The instructor has moved today's class to an online session." required>${esc(state.emergencyBanner.message)}</textarea></label><div class="flex flex-wrap gap-2"><button class="btn btn-primary" type="submit">${icon("radio")} Publish / Update Banner</button><button class="btn btn-danger" type="button" data-action="deactivate-banner">${icon("circle-stop")} Deactivate Banner</button></div></form></div>`;
-    if (adminTab === "ai") return `<div class="max-w-3xl"><div class="eyebrow">Administrator-only drafting assistant</div><h2 class="mt-1 text-lg font-bold">Ai-Ai delas Alas</h2><p class="mt-2 text-xs leading-relaxed text-slate-400">Generate drafts for reminders, subject know-hows, or schedule overrides. The assistant cannot save changes. Review and edit the JSON below, then explicitly save through the standard protected class-state endpoint.</p><form class="mt-4 space-y-3" data-form="admin-ai"><div class="grid gap-3 sm:grid-cols-2"><label class="field-label">Draft type<select class="field" name="type"><option value="reminder">Reminder</option><option value="review">Subject know-how / review guide</option><option value="scheduleOverride">Schedule override</option></select></label><label class="field-label">Draft instructions<input id="admin-ai-prompt" class="field" name="prompt" maxlength="2000" placeholder="Describe the details to include…" required></label></div><button class="btn btn-primary" type="submit">${icon("sparkles")} Generate draft</button></form><label class="field-label mt-4 block">Review and edit draft JSON<textarea id="admin-ai-result" class="field mt-2 min-h-64 font-mono text-xs" maxlength="20000" spellcheck="false" placeholder="The generated draft will appear here. Review all values before saving."></textarea></label><p id="admin-ai-status" class="mt-2 min-h-5 text-xs text-slate-400" role="status" aria-live="polite"></p><button class="btn btn-primary mt-3" type="button" data-action="save-ai-draft">${icon("check")} Save reviewed draft</button></div>`;
-    return `<div class="grid gap-4 lg:grid-cols-2"><article><div class="eyebrow">Shared data</div><h2 class="mt-1 text-lg font-bold">Backup & synchronization</h2><p class="mt-2 text-xs leading-relaxed text-slate-400">Export a versioned snapshot or import a validated JSON file. Imports replace shared class data for every visitor after server validation.</p><button class="btn btn-primary mt-4" data-action="export">${icon("download")} Export class state</button><div id="drop-zone" class="drop-zone mt-4" tabindex="0">Drop a class-state JSON file here, or <button class="underline text-emerald-200" data-action="import">choose a file</button></div></article><article class="rounded-xl border border-rose-300/20 bg-rose-400/5 p-4"><div class="eyebrow text-rose-200">Caution</div><h2 class="mt-1 text-lg font-bold">Reset shared state</h2><p class="mt-2 text-xs leading-relaxed text-slate-400">This restores the official seed state and removes all shared announcements, edits, and schedule overrides.</p><button class="btn btn-danger mt-4" data-action="hard-reset">${icon("rotate-ccw")} Reset to defaults</button></article></div><p class="mt-5 text-[11px] text-slate-500">Schema v${state.schemaVersion} · Revision ${revision ?? "—"} · Updated ${esc(lastStateSync?new Date(lastStateSync).toLocaleTimeString():"—")}</p>`;
+    if (adminTab === "reminders") return `<div class="mb-4 flex items-center justify-between gap-3"><div><h2 class="text-lg font-bold">Class-wide reminders</h2><p class="text-xs text-zinc-400">Create, edit, pin, and remove announcements.</p></div><button class="btn btn-primary" data-action="new-reminder">${icon("plus")} New reminder</button></div><div class="space-y-3">${state.reminders.map(item=>reminderCard(item)).join("")||`<div class="empty-state">No reminders yet.</div>`}</div>`;
+    if (adminTab === "schedule") return `<div class="mb-4 flex items-center justify-between gap-3"><div><h2 class="text-lg font-bold">Temporary schedule changes</h2><p class="text-xs text-zinc-400">Post a dated room change, online shift, absence, or cancellation. The base timetable remains intact.</p></div><button class="btn btn-primary" data-action="new-override">${icon("plus")} Add override</button></div><div class="mb-4 flex flex-wrap items-center justify-between gap-2"><span class="text-xs text-zinc-400">${state.scheduleOverrides.length} active record(s)</span><button class="btn btn-danger" data-action="reset-overrides">${icon("rotate-ccw")} Reset to official timetable</button></div><div class="space-y-2">${state.scheduleOverrides.map(item=>`<article class="flex flex-wrap items-start justify-between gap-3 rounded-xl border border-zinc-700/40 p-3"><div><span class="tag">${esc(item.date)}</span><span class="tag ml-1">${esc(item.status)}</span><h3 class="mt-2 text-sm font-semibold">${esc(item.scheduleId==="*"?"All classes":state.schedule.find(s=>s.id===item.scheduleId)?.title||"Removed class")}</h3><p class="mt-1 text-xs text-zinc-400">${esc(item.room)} ${esc(item.message)}</p></div><div class="flex gap-2"><button class="btn !p-2" data-action="edit-override" data-id="${esc(item.id)}" aria-label="Edit override">${icon("pencil")}</button><button class="btn btn-danger !p-2" data-action="delete-override" data-id="${esc(item.id)}" aria-label="Delete override">${icon("trash-2")}</button></div></article>`).join("")||`<div class="empty-state">No temporary schedule changes.</div>`}</div>`;
+    if (adminTab === "reviews") return `<div class="mb-4 flex items-center justify-between gap-3"><div><h2 class="text-lg font-bold">Subject know-hows</h2><p class="text-xs text-zinc-400">Maintain section lecture summaries, formulas, topics, and snippets.</p></div><button class="btn btn-primary" data-action="new-review">${icon("plus")} Add guide</button></div><div class="space-y-2">${state.reviews.map(item=>`<article class="flex flex-wrap items-center justify-between gap-2 rounded-xl border border-zinc-700/40 p-3"><div><div class="eyebrow">${esc(item.subject)}</div><div class="mt-1 text-sm font-semibold">${esc(item.title)}</div></div><div class="flex gap-2"><button class="btn" data-action="edit-review" data-id="${esc(item.id)}">${icon("pencil")} Edit</button><button class="btn btn-danger !p-2" data-action="delete-review" data-id="${esc(item.id)}" aria-label="Delete guide">${icon("trash-2")}</button></div></article>`).join("")}</div>`;
+    if (adminTab === "banner") return `<div class="max-w-2xl"><div class="eyebrow">Emergency broadcast</div><h2 class="mt-1 text-lg font-bold">Section-wide alert banner</h2><p class="mt-2 text-xs leading-relaxed text-zinc-400">Reserve for urgent changes such as suspensions, room shifts, or safety updates. Confirm facts through official HAU channels.</p><p class="mt-4 text-sm font-semibold" role="status" aria-live="polite">Status: <span class="tag ${state.emergencyBanner.active?"tag-critical":"tag-low"}">${state.emergencyBanner.active?"ACTIVE":"INACTIVE"}</span>${state.emergencyBanner.updatedAt?`<span class="ml-2 text-xs font-normal text-zinc-500">Updated ${esc(new Date(state.emergencyBanner.updatedAt).toLocaleString(undefined,{dateStyle:"medium",timeStyle:"short"}))}</span>`:""}</p>${state.emergencyBanner.active?`<div class="mt-3 rounded-xl border border-white/15 bg-white/5 p-4 text-sm text-zinc-100"><strong class="mr-2 text-xs uppercase">Live banner</strong>${esc(state.emergencyBanner.message)}</div>`:`<div class="mt-3 rounded-xl border border-zinc-700/40 p-4 text-sm text-zinc-500">No emergency notice is active.</div>`}<form class="mt-4 space-y-3" data-form="emergency"><label class="field-label">Banner message<textarea class="field min-h-24" name="message" maxlength="2000" placeholder="Example: The instructor has moved today's class to an online session." required>${esc(state.emergencyBanner.message)}</textarea></label><div class="flex flex-wrap gap-2"><button class="btn btn-primary" type="submit">${icon("radio")} Publish / Update Banner</button><button class="btn btn-danger" type="button" data-action="deactivate-banner">${icon("circle-stop")} Deactivate Banner</button></div></form></div>`;
+    if (adminTab === "ai") return `<div class="max-w-3xl"><div class="eyebrow">Administrator-only drafting assistant</div><h2 class="mt-1 text-lg font-bold">Ai-Ai delas Alas</h2><p class="mt-2 text-xs leading-relaxed text-zinc-400">Generate drafts for reminders, subject know-hows, or schedule overrides. The assistant cannot save changes. Review and edit the JSON below, then explicitly save through the standard protected class-state endpoint.</p><form class="mt-4 space-y-3" data-form="admin-ai"><div class="grid gap-3 sm:grid-cols-2"><label class="field-label">Draft type<select class="field" name="type"><option value="reminder">Reminder</option><option value="review">Subject know-how / review guide</option><option value="scheduleOverride">Schedule override</option></select></label><label class="field-label">Draft instructions<input id="admin-ai-prompt" class="field" name="prompt" maxlength="2000" placeholder="Describe the details to include…" required></label></div><button class="btn btn-primary" type="submit">${icon("sparkles")} Generate draft</button></form><label class="field-label mt-4 block">Review and edit draft JSON<textarea id="admin-ai-result" class="field mt-2 min-h-64 font-mono text-xs" maxlength="20000" spellcheck="false" placeholder="The generated draft will appear here. Review all values before saving."></textarea></label><p id="admin-ai-status" class="mt-2 min-h-5 text-xs text-zinc-400" role="status" aria-live="polite"></p><button class="btn btn-primary mt-3" type="button" data-action="save-ai-draft">${icon("check")} Save reviewed draft</button></div>`;
+    return `<div class="grid gap-4 lg:grid-cols-2"><article><div class="eyebrow">Shared data</div><h2 class="mt-1 text-lg font-bold">Backup & synchronization</h2><p class="mt-2 text-xs leading-relaxed text-zinc-400">Export a versioned snapshot or import a validated JSON file. Imports replace shared class data for every visitor after server validation.</p><button class="btn btn-primary mt-4" data-action="export">${icon("download")} Export class state</button><div id="drop-zone" class="drop-zone mt-4" tabindex="0">Drop a class-state JSON file here, or <button class="underline text-zinc-200" data-action="import">choose a file</button></div></article><article class="rounded-xl border border-white/10 bg-white/5 p-4"><div class="eyebrow text-zinc-200">Caution</div><h2 class="mt-1 text-lg font-bold">Reset shared state</h2><p class="mt-2 text-xs leading-relaxed text-zinc-400">This restores the official seed state and removes all shared announcements, edits, and schedule overrides.</p><button class="btn btn-danger mt-4" data-action="hard-reset">${icon("rotate-ccw")} Reset to defaults</button></article></div><p class="mt-5 text-[11px] text-zinc-500">Schema v${state.schemaVersion} · Revision ${revision ?? "—"} · Updated ${esc(lastStateSync?new Date(lastStateSync).toLocaleTimeString():"—")}</p>`;
   }
   function renderEmergency() {
     const banner=$("#emergency-banner");
@@ -1039,7 +994,7 @@
   }
   function openModal(title, body, onSubmit, submitText = "Save changes") {
     const mount=$("#modal-mount");
-    mount.innerHTML=`<div class="modal-backdrop" data-modal-backdrop><section class="modal-card panel-card" role="dialog" aria-modal="true" aria-labelledby="modal-title"><div class="modal-header"><h2 id="modal-title">${esc(title)}</h2><button class="btn !p-2" data-action="close-modal" aria-label="Close dialog">${icon("x")}</button></div><form class="space-y-3" id="active-modal-form">${body}<div class="flex justify-end gap-2 border-t border-slate-700/40 pt-3"><button type="button" class="btn" data-action="close-modal">Cancel</button><button class="btn btn-primary" type="submit">${esc(submitText)}</button></div></form></section></div>`;
+    mount.innerHTML=`<div class="modal-backdrop" data-modal-backdrop><section class="modal-card panel-card" role="dialog" aria-modal="true" aria-labelledby="modal-title"><div class="modal-header"><h2 id="modal-title">${esc(title)}</h2><button class="btn !p-2" data-action="close-modal" aria-label="Close dialog">${icon("x")}</button></div><form class="space-y-3" id="active-modal-form">${body}<div class="flex justify-end gap-2 border-t border-zinc-700/40 pt-3"><button type="button" class="btn" data-action="close-modal">Cancel</button><button class="btn btn-primary" type="submit">${esc(submitText)}</button></div></form></section></div>`;
     refreshIcons(mount);
     $("#active-modal-form",mount).addEventListener("submit",async event=>{
       event.preventDefault();
@@ -1068,7 +1023,7 @@
       <div class="grid gap-3 sm:grid-cols-2">${selectField("Subject tag","subject",["ALL",...state.subjects.map(subject=>subject.code)],item.subject||"ALL")}${selectField("Category","category",CYB202_DATA.reminderCategories,item.category||"General")}</div>
       ${multilineField("Scope / description","description",item.description||"","Add the detail classmates need to know.")}
       <div class="grid gap-3 sm:grid-cols-2">${formField("External resource link (optional)","externalLink",item.externalLink||"","url",false,'placeholder="https://…"')}${formField("Due date & time (optional)","dueAt",item.dueAt?localDateTime(new Date(item.dueAt)):"","datetime-local",false)}</div>
-      <div class="grid gap-3 sm:grid-cols-2">${selectField("Priority","priority",["High","Medium","Low"],item.priority||"Medium")}<label class="flex items-center gap-2 self-end pb-2 text-xs text-slate-300"><input type="checkbox" name="pinned" class="accent-emerald-400" ${item.pinned?"checked":""}> Pin this notice</label></div>`;
+      <div class="grid gap-3 sm:grid-cols-2">${selectField("Priority","priority",["High","Medium","Low"],item.priority||"Medium")}<label class="flex items-center gap-2 self-end pb-2 text-xs text-zinc-300"><input type="checkbox" name="pinned" class="accent-emerald-400" ${item.pinned?"checked":""}> Pin this notice</label></div>`;
     openModal(isEdit?"Edit class reminder":"Publish a class reminder",body,async form=>{
       const values=Object.fromEntries(form.entries());
       const externalLink=values.externalLink.trim();
@@ -1129,16 +1084,16 @@
     });
   }
   function confirmModal(title,message,callback,label="Confirm") {
-    openModal(title,`<p class="text-sm leading-relaxed text-slate-300">${esc(message)}</p>`,async()=>callback(),label);
+    openModal(title,`<p class="text-sm leading-relaxed text-zinc-300">${esc(message)}</p>`,async()=>callback(),label);
   }
   function loginModal() {
     if(!apiOnline){toast("The shared server is offline; admin sign-in is unavailable.","error");return;}
     const locked=Security.loginLockRemaining();
     if(locked){toast(`Login is locked for ${Math.ceil(locked/1000)} seconds.`,"error");return;}
-    const body=`<div class="rounded-xl border border-violet-300/20 bg-violet-400/5 p-3 text-xs leading-relaxed text-violet-100">Server-verified administrator access. Passphrases are never stored in the browser. Use the authorized profile and its unique passphrase.</div>
+    const body=`<div class="rounded-xl border border-white/10 bg-white/5 p-3 text-xs leading-relaxed text-zinc-100">Server-verified administrator access. Passphrases are never stored in the browser. Use the authorized profile and its unique passphrase.</div>
       ${selectField("Authorized administrator","adminId",Object.entries(Security.ADMIN_IDS).map(([value,label])=>({value,label})), "leander")}
-      <label class="field-label">Passphrase<span class="relative mt-1 block"><input id="admin-password" class="field pr-14" name="password" type="password" minlength="12" maxlength="256" autocomplete="current-password" required><button type="button" class="absolute right-2 top-1/2 -translate-y-1/2 text-xs text-cyan-200" data-action="toggle-password">Show</button></span></label>
-      <p id="login-countdown" class="min-h-4 text-xs text-rose-300" aria-live="polite"></p>`;
+      <label class="field-label">Passphrase<span class="relative mt-1 block"><input id="admin-password" class="field pr-14" name="password" type="password" minlength="12" maxlength="256" autocomplete="current-password" required><button type="button" class="absolute right-2 top-1/2 -tranzinc-y-1/2 text-xs text-zinc-200" data-action="toggle-password">Show</button></span></label>
+      <p id="login-countdown" class="min-h-4 text-xs text-zinc-300" aria-live="polite"></p>`;
     openModal("Administrator sign-in",body,async form=>{
       const password=String(form.get("password")||"");
       try {
@@ -1170,7 +1125,7 @@
   }
   function openPalette() {
     const mount=$("#palette-mount");
-    mount.innerHTML=`<div class="palette-backdrop" data-palette-backdrop><section class="palette-card panel-card" role="dialog" aria-modal="true" aria-label="Spotlight search"><label class="sr-only" for="spotlight-input">Search class hub</label><div class="flex items-center gap-3 border-b border-slate-700/50 px-4 py-3">${icon("search","h-5 w-5 text-slate-400")}<input id="spotlight-input" class="min-w-0 flex-1 bg-transparent text-sm text-white outline-none placeholder:text-slate-500" placeholder="Search subjects, rooms, announcements, and formulas…" autocomplete="off"><kbd>ESC</kbd></div><div id="palette-results" class="palette-results scrollbar"></div><div class="border-t border-slate-700/40 px-4 py-2 text-[10px] text-slate-500">↑↓ navigate <span class="px-1">·</span> Enter open <span class="px-1">·</span> Esc close</div></section></div>`;
+    mount.innerHTML=`<div class="palette-backdrop" data-palette-backdrop><section class="palette-card panel-card" role="dialog" aria-modal="true" aria-label="Spotlight search"><label class="sr-only" for="spotlight-input">Search class hub</label><div class="flex items-center gap-3 border-b border-zinc-700/50 px-4 py-3">${icon("search","h-5 w-5 text-zinc-400")}<input id="spotlight-input" class="min-w-0 flex-1 bg-transparent text-sm text-white outline-none placeholder:text-zinc-500" placeholder="Search subjects, rooms, announcements, and formulas…" autocomplete="off"><kbd>ESC</kbd></div><div id="palette-results" class="palette-results scrollbar"></div><div class="border-t border-zinc-700/40 px-4 py-2 text-[10px] text-zinc-500">↑↓ navigate <span class="px-1">·</span> Enter open <span class="px-1">·</span> Esc close</div></section></div>`;
     refreshIcons(mount);
     $("#spotlight-input").addEventListener("input",event=>updatePalette(event.target.value));
     $("#spotlight-input").addEventListener("keydown",paletteKeydown);
@@ -1219,7 +1174,7 @@
     searchResults=buildSearchItems().map(item=>({...item,score:searchScore(query,item.text)}))
       .filter(item=>item.score>0).sort((a,b)=>b.score-a.score).slice(0,18);
     searchIndex=0;
-    results.innerHTML=searchResults.length?searchResults.map((item,index)=>`<button class="palette-result" data-palette-index="${index}" aria-selected="${index===0}"><span class="palette-icon">${icon(item.view==="schedule"?"calendar-days":item.view==="arcade"?"gamepad-2":item.view==="reminders"?"bell":"book-open")}</span><span class="min-w-0 flex-1"><span class="block truncate text-sm font-semibold">${esc(item.label)}</span><small class="truncate">${esc(item.detail)}</small></span>${icon("arrow-up-right","h-3.5 w-3.5 text-slate-500")}</button>`).join(""):`<div class="p-7 text-center text-sm text-slate-400">${query.trim()?"No match found. Try a subject code, room prefix, or key term.":"Start typing to search the class hub."}</div>`;
+    results.innerHTML=searchResults.length?searchResults.map((item,index)=>`<button class="palette-result" data-palette-index="${index}" aria-selected="${index===0}"><span class="palette-icon">${icon(item.view==="schedule"?"calendar-days":item.view==="arcade"?"gamepad-2":item.view==="reminders"?"bell":"book-open")}</span><span class="min-w-0 flex-1"><span class="block truncate text-sm font-semibold">${esc(item.label)}</span><small class="truncate">${esc(item.detail)}</small></span>${icon("arrow-up-right","h-3.5 w-3.5 text-zinc-500")}</button>`).join(""):`<div class="p-7 text-center text-sm text-zinc-400">${query.trim()?"No match found. Try a subject code, room prefix, or key term.":"Start typing to search the class hub."}</div>`;
     refreshIcons(results);
   }
   function paletteKeydown(event) {
@@ -1837,7 +1792,6 @@
   async function initialize() {
     if(window.cyb202ThreeReady)await window.cyb202ThreeReady;
     initializeEyeBackground();
-    loadThemePreference();
     try{
       currentSession=await Security.refreshSession();
       syncAiWidgetPersona(Security.isAdminAuthenticated());
@@ -1889,8 +1843,6 @@
     closeAppearancePanel();
     $("#appearance-trigger").focus();
   });
-  $$("[data-theme]").forEach(button=>button.addEventListener("click",()=>applyTheme(button.dataset.theme)));
-  $("#custom-theme-color").addEventListener("input",event=>applyTheme(`custom:${event.currentTarget.value}`));
   $("#ai-chat-form").addEventListener("submit",event=>{
     event.preventDefault();
     sendAiMessage($("#ai-chat-input").value);
