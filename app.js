@@ -806,6 +806,113 @@
     texture.colorSpace=THREE.SRGBColorSpace;
     return texture;
   }
+  function makeEyelidTexture(THREE) {
+    const canvas=document.createElement("canvas");
+    canvas.width=512;canvas.height=256;
+    const context=canvas.getContext("2d");
+    const skin=context.createLinearGradient(0,0,0,256);
+    skin.addColorStop(0,"#111113");
+    skin.addColorStop(.28,"#303035");
+    skin.addColorStop(.62,"#202024");
+    skin.addColorStop(1,"#0e0e10");
+    context.fillStyle=skin;context.fillRect(0,0,canvas.width,canvas.height);
+    for(let i=0;i<32;i++){
+      const x=Math.random()*canvas.width;
+      const y=Math.random()*canvas.height;
+      context.beginPath();
+      context.moveTo(x,y);
+      context.quadraticCurveTo(x+40,y+(Math.random()-.5)*18,x+90,y+(Math.random()-.5)*24);
+      context.strokeStyle=`rgba(244,244,245,${.012+Math.random()*.025})`;
+      context.lineWidth=.5+Math.random()*.8;
+      context.stroke();
+    }
+    for(let i=0;i<1800;i++){
+      const shade=Math.random()>.5?"255,255,255":"0,0,0";
+      context.fillStyle=`rgba(${shade},${.015+Math.random()*.025})`;
+      context.fillRect(Math.random()*canvas.width,Math.random()*canvas.height,1,1);
+    }
+    const texture=new THREE.CanvasTexture(canvas);
+    texture.colorSpace=THREE.SRGBColorSpace;
+    return texture;
+  }
+  function makeEyelidGeometry(THREE,upper) {
+    const radius=1.84;
+    const halfWidth=1.66;
+    const xSegments=96;
+    const arcSegments=16;
+    const positions=[];
+    const uvs=[];
+    const indices=[];
+    for(let xIndex=0;xIndex<=xSegments;xIndex++){
+      const u=xIndex/xSegments;
+      const x=(u*2-1)*halfWidth;
+      const normalized=x/halfWidth;
+      const inner=0.56+0.24*(1-normalized*normalized);
+      const outer=Math.sqrt(Math.max(0,radius*radius-x*x));
+      for(let arcIndex=0;arcIndex<=arcSegments;arcIndex++){
+        const v=arcIndex/arcSegments;
+        const yMagnitude=inner+(outer-inner)*v;
+        const y=(upper?1:-1)*yMagnitude;
+        const z=Math.sqrt(Math.max(0,radius*radius-x*x-y*y))+.025;
+        positions.push(x,y,z);
+        uvs.push(u,upper?1-v:v);
+      }
+    }
+    for(let xIndex=0;xIndex<xSegments;xIndex++){
+      for(let arcIndex=0;arcIndex<arcSegments;arcIndex++){
+        const a=xIndex*(arcSegments+1)+arcIndex;
+        const b=a+arcSegments+1;
+        indices.push(a,b,a+1,b,b+1,a+1);
+      }
+    }
+    const geometry=new THREE.BufferGeometry();
+    geometry.setAttribute("position",new THREE.Float32BufferAttribute(positions,3));
+    geometry.setAttribute("uv",new THREE.Float32BufferAttribute(uvs,2));
+    geometry.setIndex(indices);
+    geometry.computeVertexNormals();
+    return geometry;
+  }
+  function makeEyelidRidge(THREE,upper) {
+    const radius=1.84;
+    const halfWidth=1.58;
+    const points=[];
+    for(let index=0;index<=48;index++){
+      const x=(index/48*2-1)*halfWidth;
+      const normalized=x/1.66;
+      const inner=0.56+0.24*(1-normalized*normalized);
+      const y=(upper?1:-1)*(inner+.14);
+      const z=Math.sqrt(Math.max(0,radius*radius-x*x-y*y))+.045;
+      points.push(new THREE.Vector3(x,y,z));
+    }
+    const curve=new THREE.CatmullRomCurve3(points);
+    const material=new THREE.MeshStandardMaterial({
+      color:0x55555b,roughness:.72,transparent:true,opacity:.58
+    });
+    return new THREE.Mesh(new THREE.TubeGeometry(curve,64,.012,6,false),material);
+  }
+  function makeEyelashes(THREE,upper) {
+    const radius=1.84;
+    const positions=[];
+    for(let index=0;index<32;index++){
+      const x=-1.52+(index/31)*3.04+(Math.random()-.5)*.025;
+      const normalized=x/1.66;
+      const inner=0.56+0.24*(1-normalized*normalized);
+      const edgeY=(upper?1:-1)*inner;
+      const length=(upper ? .055 : .035)+Math.random()*.045;
+      const midX=x+(Math.random()-.5)*.035;
+      const endX=x+(Math.random()-.5)*.065;
+      const midY=edgeY+(upper?1:-1)*length*.55;
+      const endY=edgeY+(upper?1:-1)*length;
+      const edgeZ=Math.sqrt(Math.max(0,radius*radius-x*x-edgeY*edgeY))+.05;
+      const midZ=Math.sqrt(Math.max(0,radius*radius-midX*midX-midY*midY))+.05;
+      const endZ=Math.sqrt(Math.max(0,radius*radius-endX*endX-endY*endY))+.05;
+      positions.push(x,edgeY,edgeZ,midX,midY,midZ,midX,midY,midZ,endX,endY,endZ);
+    }
+    const geometry=new THREE.BufferGeometry();
+    geometry.setAttribute("position",new THREE.Float32BufferAttribute(positions,3));
+    const material=new THREE.LineBasicMaterial({color:0x09090b,transparent:true,opacity:.78});
+    return new THREE.LineSegments(geometry,material);
+  }
   function initializeEyeBackground() {
     const canvas=$("#bg-3d-canvas");
     if(!canvas||!window.THREE)return;
@@ -840,6 +947,23 @@
         })
       );
       eye.add(cornea);
+      const lidTexture=makeEyelidTexture(THREE);
+      const lidMaterial=new THREE.MeshPhysicalMaterial({
+        map:lidTexture,bumpMap:lidTexture,bumpScale:.012,
+        color:0xffffff,roughness:.52,metalness:.06,
+        clearcoat:.14,clearcoatRoughness:.38,side:THREE.DoubleSide
+      });
+      function createEyelid(upper){
+        const lid=new THREE.Group();
+        const shell=new THREE.Mesh(makeEyelidGeometry(THREE,upper),lidMaterial);
+        shell.renderOrder=2;
+        lid.add(shell,makeEyelidRidge(THREE,upper),makeEyelashes(THREE,upper));
+        lid.position.z=.015;
+        eye.add(lid);
+        return lid;
+      }
+      const upperLid=createEyelid(true);
+      const lowerLid=createEyelid(false);
       const ambient=new THREE.AmbientLight(0xe4e4e7,1.05);
       scene.add(ambient);
       const keyLight=new THREE.PointLight(0xffffff,24,18);
@@ -852,6 +976,10 @@
       const target={x:0,y:0};
       let micro={x:0,y:0};
       let nextTwitch=performance.now()+1800;
+      let blinkStartedAt=0;
+      let blinkDuration=170;
+      let blinkAmount=0;
+      let nextBlink=performance.now()+2200+Math.random()*2400;
       function trackPointer(event){
         target.x=(event.clientX/window.innerWidth)*2-1;
         target.y=1-(event.clientY/window.innerHeight)*2;
@@ -876,6 +1004,25 @@
         }
         eye.rotation.y+=(pointer.x*.28+micro.x-eye.rotation.y)*.055;
         eye.rotation.x+=(-pointer.y*.2+micro.y-eye.rotation.x)*.055;
+        if(!blinkStartedAt&&now>=nextBlink){
+          blinkStartedAt=now;
+          blinkDuration=150+Math.random()*90;
+        }
+        if(blinkStartedAt){
+          const progress=Math.min(1,(now-blinkStartedAt)/blinkDuration);
+          const eased=progress<.46
+            ?(progress/.46)**2*(3-2*(progress/.46))
+            :1-((progress-.46)/.54)**2*(3-2*((progress-.46)/.54));
+          blinkAmount=Math.max(0,Math.min(1,eased));
+          if(progress>=1){
+            blinkAmount=0;
+            blinkStartedAt=0;
+            nextBlink=now+(Math.random()<.12?240:2600+Math.random()*3300);
+          }
+        }
+        const relaxed=Math.max(0,-pointer.y)*.1;
+        upperLid.position.y=-blinkAmount*.98-relaxed*.2;
+        lowerLid.position.y=blinkAmount*.98+relaxed*.08;
         keyLight.position.x=-3+pointer.x*1.2;
         fillLight.position.y=-2+pointer.y;
         renderer.render(scene,camera);

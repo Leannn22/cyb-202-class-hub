@@ -227,6 +227,7 @@ body { isolation: isolate; }
   height: 100vh;
   pointer-events: none;
   opacity: .38;
+  filter: grayscale(1) contrast(1.08);
 }
 .topbar, .glass, .panel-card, .modal-card, .palette-card, .appearance-panel, .ai-chat-panel {
   background: var(--glass-bg);
