@@ -17,10 +17,28 @@
     "theme-amber":"#f59e0b",
     "theme-rose":"#f43f5e"
   };
+  const arcadeStorageKey = "cyb202_arcade_v1";
+  const gachaCatalog = [
+    {id:"avatar-stargazer",name:"Stargazer",type:"avatar",rarity:"Common",icon:"🌙"},
+    {id:"theme-mist",name:"Moonlit Mist",type:"theme",rarity:"Common",icon:"🌫️"},
+    {id:"badge-spark",name:"First Spark",type:"badge",rarity:"Common",icon:"✨"},
+    {id:"avatar-comet",name:"Comet",type:"avatar",rarity:"Rare",icon:"☄️"},
+    {id:"theme-nebula",name:"Nebula Drift",type:"theme",rarity:"Rare",icon:"🌌"},
+    {id:"badge-orbit",name:"Perfect Orbit",type:"badge",rarity:"Rare",icon:"🪐"},
+    {id:"avatar-lunaria",name:"Lunaria",type:"avatar",rarity:"Epic",icon:"🌙"},
+    {id:"theme-aurora",name:"Aurora Bloom",type:"theme",rarity:"Epic",icon:"🌈"},
+    {id:"badge-constellation",name:"Constellation",type:"badge",rarity:"Epic",icon:"🌟"},
+    {id:"avatar-solaris",name:"Solaris",type:"avatar",rarity:"Legendary",icon:"☀️"},
+    {id:"theme-supernova",name:"Supernova",type:"theme",rarity:"Legendary",icon:"💫"},
+    {id:"badge-cosmic",name:"Cosmic Scholar",type:"badge",rarity:"Legendary",icon:"🏅"},
+    {id:"avatar-prism",name:"Prism Keeper",type:"avatar",rarity:"Mythic",icon:"🔮"},
+    {id:"theme-infinity",name:"Infinite Sky",type:"theme",rarity:"Mythic",icon:"🌀"},
+    {id:"badge-universe",name:"Little Universe",type:"badge",rarity:"Mythic",icon:"🌠"}
+  ];
   const nav = [
     ["focus","Today's focus","sun"], ["schedule","Full timetable","calendar-days"],
     ["reminders","Class reminders","bell"], ["reviews","Subject know-hows","book-open-check"],
-    ["terminal","Cyber terminal","terminal-square"], ["admin","Admin portal","settings-2"]
+    ["arcade","Arcade & Gacha Lounge","gamepad-2"], ["admin","Admin portal","settings-2"]
   ];
   const roomPrefixes = Object.keys(CYB202_DATA.roomGuide);
   let state = clone(CYB202_DATA.defaultState);
@@ -50,6 +68,10 @@
   let aiRequestController = null;
   let selectedTheme = "theme-emerald";
   let themeStorageWarningShown = false;
+  let arcadeSave = loadArcadeSave();
+  let memoryGame = null;
+  let arcadeCleanup = null;
+  let gachaBusy = false;
 
   function toast(message, kind = "success") {
     const element = document.createElement("div");
@@ -145,6 +167,9 @@
     }[category] || (category === "General" ? "tag-general" : "tag");
     return `<span class="tag ${css}">${esc(category)}</span>`;
   }
+  function rarityLabel(rarity) {
+    return rarity==="Mythic"?"Mythic Holographic":rarity;
+  }
   function dateUntil(value) {
     if (!value) return "No deadline set";
     const milliseconds = new Date(value).getTime() - Date.now();
@@ -223,7 +248,7 @@
     }
     if(personaChanged&&!$("#ai-chat").hidden)appendAiMessage("assistant",authenticated
       ?"Hi! I’m Ai-Ai delas Alas, your administrator drafting helper. Send a request to prepare a reminder, schedule override, or reviewer note for review in the Admin Portal."
-      :"Hi! I’m BETTIE, your read-only CYB-202 study assistant. I can help with your timetable, reminders, subject know-hows, and Cyber Terminal references.");
+      :"Hi! I’m BETTIE, your read-only CYB-202 study assistant. I can help with your timetable, reminders, and subject know-hows.");
   }
   function setRoleIndicator() {
     const label = $("#role-label");
@@ -247,19 +272,36 @@
   }
   function switchView(view) {
     if (!nav.some(([id]) => id === view)) return;
-    activeView = view;
-    renderNavigation();
-    renderActiveView();
+    if (view === activeView) return;
+    const root = $("#view-root");
+    const transitionId = String(Number(root.dataset.transitionId || 0) + 1);
+    root.dataset.transitionId = transitionId;
+    root.classList.add("page-exit");
+    const finish = () => {
+      if (root.dataset.transitionId !== transitionId) return;
+      activeView = view;
+      renderNavigation();
+      renderActiveView();
+      root.classList.remove("page-exit");
+      root.classList.add("page-enter");
+      window.setTimeout(() => {
+        if (root.dataset.transitionId === transitionId) root.classList.remove("page-enter");
+      },520);
+    };
+    window.setTimeout(finish, 260);
     window.scrollTo({ top:0, behavior:"smooth" });
   }
   function renderActiveView() {
+    arcadeCleanup?.();
+    arcadeCleanup = null;
     const renderers = {
       focus:renderToday, schedule:renderSchedule, reminders:renderReminders,
-      reviews:renderReviews, terminal:renderTerminal, admin:renderAdmin
+      reviews:renderReviews, arcade:renderArcade, admin:renderAdmin
     };
     const render = renderers[activeView] || renderToday;
     $("#view-root").innerHTML = render();
     refreshIcons($("#view-root"));
+    if (activeView === "arcade") arcadeCleanup = initializeArcade();
   }
   function nextOccurrence(now = new Date(), includeCurrent = true) {
     const candidates = [];
@@ -401,9 +443,12 @@
   function renderReminders() {
     const filters=["All",...CYB202_DATA.reminderCategories,"Urgent"];
     const dateFilterTemplate=$("#reminder-date-filter-template");
-    const dateControls=dateFilterTemplate.innerHTML
-      .replace('id="reminder-date-filter"',`id="reminder-date-filter" value="${esc(reminderDateFilter)}"`)
-      .replace("data-reminder-date-clear hidden",`data-reminder-date-clear${reminderDateFilter?"":" hidden"}`);
+    const dateControlsFragment=dateFilterTemplate.content.cloneNode(true);
+    dateControlsFragment.querySelector("#reminder-date-filter").value=reminderDateFilter;
+    dateControlsFragment.querySelector("[data-reminder-date-clear]").hidden=!reminderDateFilter;
+    const dateControlsMount=document.createElement("div");
+    dateControlsMount.append(dateControlsFragment);
+    const dateControls=dateControlsMount.innerHTML;
     return `${viewHeading("Section-wide announcements","Class reminders","Shared notices, exam coverage, assignment deadlines, and important links. Changes require an authenticated class administrator.",Security.isAdminAuthenticated()?`<button class="btn btn-primary" data-action="new-reminder">${icon("plus")} New reminder</button>`:"")}
       <div class="mb-4 flex flex-col gap-3">
         <div class="flex flex-wrap gap-2">${filters.map(filter=>`<button class="btn ${reminderFilter===filter?"btn-primary":""}" data-filter-reminders="${esc(filter)}" aria-pressed="${reminderFilter===filter}">${filter==="Urgent"?icon("triangle-alert"):filter==="All"?icon("list-filter"):icon("tag")} ${esc(filter)}</button>`).join("")}</div>
@@ -421,9 +466,471 @@
           ${Security.isAdminAuthenticated()?`<div class="mt-4 flex gap-2 border-t border-slate-700/40 pt-3"><button class="btn" data-action="edit-review" data-id="${esc(item.id)}">${icon("pencil")} Edit</button><button class="btn btn-danger" data-action="delete-review" data-id="${esc(item.id)}">${icon("trash-2")} Delete</button></div>`:""}
         </div></details>`).join("")||`<div class="empty-state lg:col-span-2">No subject guides are available.</div>`}</div>`;
   }
-  function renderTerminal() {
-    return `${viewHeading("Reference drawer","Cyber terminal cheat sheets","Quick references for authorized coursework and lab environments. These are examples; follow your instructor's lab scope.",Security.isAdminAuthenticated()?`<button class="btn btn-primary" data-action="new-cheat">${icon("plus")} Add cheat sheet</button>`:"")}
-      <div class="grid gap-3 lg:grid-cols-2">${state.cheatSheets.map(item=>`<article class="panel-card p-4"><div class="flex items-start justify-between gap-3"><div><div class="eyebrow">${esc(item.group)}</div><h2 class="mt-1 font-bold">${esc(item.title)}</h2></div><button class="btn !p-2" data-action="copy-text" data-value="${esc(item.code)}" aria-label="Copy ${esc(item.title)}">${icon("copy")}</button></div><p class="mt-2 text-xs leading-relaxed text-slate-400">${esc(item.description)}</p><pre class="code-sample mt-3">${esc(item.code)}</pre>${Security.isAdminAuthenticated()?`<div class="mt-3 flex gap-2"><button class="btn" data-action="edit-cheat" data-id="${esc(item.id)}">${icon("pencil")} Edit</button><button class="btn btn-danger" data-action="delete-cheat" data-id="${esc(item.id)}">${icon("trash-2")} Delete</button></div>`:""}</article>`).join("")}</div>`;
+  function loadArcadeSave() {
+    const starter = {coins:500,pity:0,unlocked:[]};
+    try {
+      const saved = JSON.parse(localStorage.getItem(arcadeStorageKey) || "null");
+      if (!saved || typeof saved !== "object") return starter;
+      return {
+        coins:Number.isSafeInteger(saved.coins) && saved.coins >= 0 ? saved.coins : starter.coins,
+        pity:Number.isSafeInteger(saved.pity) && saved.pity >= 0 && saved.pity < 50 ? saved.pity : 0,
+        unlocked:Array.isArray(saved.unlocked)
+          ? [...new Set(saved.unlocked.filter(id=>gachaCatalog.some(item=>item.id===id)))]
+          : []
+      };
+    } catch (error) {
+      console.error("Arcade progress could not be loaded:",error);
+      return starter;
+    }
+  }
+  function saveArcadeProgress() {
+    try {
+      localStorage.setItem(arcadeStorageKey,JSON.stringify(arcadeSave));
+      updateArcadeWallet();
+    } catch (error) {
+      console.error("Arcade progress could not be saved:",error);
+      toast("Arcade progress changed for this visit, but browser storage could not save it.","warning");
+    }
+  }
+  function updateArcadeWallet() {
+    const balance=$("#arcade-coins");
+    if(balance)balance.textContent=String(arcadeSave.coins);
+    const pity=$("#gacha-pity");
+    if(pity)pity.textContent=`${arcadeSave.pity} / 50 pulls to Legendary`;
+  }
+  function addStudyCoins(amount) {
+    arcadeSave.coins=Math.min(Number.MAX_SAFE_INTEGER,arcadeSave.coins+amount);
+    saveArcadeProgress();
+  }
+  function renderArcade() {
+    memoryGame=createMemoryGame();
+    const unlocked=new Set(arcadeSave.unlocked);
+    return `${viewHeading("Take a breather","Arcade & Gacha Lounge","Play a couple of calm, non-cyber mini-games, earn Study Coins, and collect cosmic keepsakes. Progress is saved in this browser.")}
+      <div class="arcade-wallet panel-card mb-4"><span class="arcade-coin" aria-hidden="true">✦</span><strong><span id="arcade-coins">${arcadeSave.coins}</span> Study Coins</strong><span class="arcade-wallet-note">Earn coins by playing and matching.</span></div>
+      <div class="grid gap-4 xl:grid-cols-2">
+        <section class="panel-card p-4 md:p-5"><div class="flex flex-wrap items-start justify-between gap-3"><div><div class="eyebrow">Cosmic Zen Jumper</div><h2 class="mt-1 text-xl font-bold">A little bounce among the stars</h2><p class="mt-1 text-xs text-slate-400">Move with ← → or A / D. Touch the canvas to hop sideways and gather stars.</p></div><span class="tag tag-low">+5 coins / star</span></div>
+          <div class="jumper-wrap mt-4"><canvas id="jumper-canvas" class="jumper-canvas" aria-label="Cosmic Zen Jumper game canvas"></canvas><div class="jumper-hud"><span>Stars <strong id="jumper-score">0</strong></span><button type="button" class="btn !px-2 !py-1" data-action="jumper-restart">Restart</button></div></div>
+        </section>
+        <section class="panel-card p-4 md:p-5"><div class="flex flex-wrap items-start justify-between gap-3"><div><div class="eyebrow">Memory Constellation</div><h2 class="mt-1 text-xl font-bold">Match the night sky</h2><p class="mt-1 text-xs text-slate-400">Find matching pairs. Consecutive matches build a combo reward.</p></div><span id="memory-status" class="tag tag-low">Match a pair for coins</span></div>
+          <div id="memory-board" class="memory-board mt-4" aria-label="Memory Constellation cards"></div><button type="button" class="btn mt-3" data-action="memory-restart">New constellation</button>
+        </section>
+      </div>
+      <section class="panel-card gacha-panel mt-4 p-4 md:p-6"><div class="grid gap-5 md:grid-cols-[minmax(0,1fr)_15rem] md:items-center"><div><div class="eyebrow">Cosmic collection · Summon</div><h2 class="mt-1 text-2xl font-extrabold">A tiny surprise from the stars</h2><p class="mt-2 max-w-2xl text-sm text-slate-400">Pull avatars, themes, and badges across five rarity tiers. A Legendary item is guaranteed every 50 pulls; a 10x pull guarantees at least one Rare or better.</p><div class="mt-4 flex flex-wrap gap-2"><button type="button" class="btn btn-primary" data-action="gacha-1x">1x Pull · 100 Coins</button><button type="button" class="btn" data-action="gacha-10x">10x Pull · 900 Coins</button></div><p id="gacha-pity" class="mt-3 text-xs text-slate-400" role="status">${arcadeSave.pity} / 50 pulls to Legendary</p><p id="gacha-status" class="mt-1 min-h-5 text-xs text-cyan-200" aria-live="polite"></p></div><div class="summon-chamber" id="summon-chamber" aria-hidden="true"><div class="summon-orb"><span>✦</span></div><div class="summon-ring ring-one"></div><div class="summon-ring ring-two"></div><div class="summon-glow"></div></div></div><div id="gacha-results" class="gacha-results mt-4" aria-live="polite"></div></section>
+      <section class="panel-card mt-4 p-4 md:p-5">      <div class="flex items-end justify-between gap-3"><div><div class="eyebrow">Collection Codex</div><h2 class="mt-1 text-xl font-bold">Your cosmic keepsakes</h2></div><span class="tag"><span id="codex-count">${unlocked.size}</span> / ${gachaCatalog.length} collected</span></div>
+        <div class="codex-grid mt-4">${gachaCatalog.map(item=>unlocked.has(item.id)
+          ?`<article class="codex-item rarity-${item.rarity.toLowerCase()}"><span class="codex-icon" aria-hidden="true">${item.icon}</span><strong>${esc(item.name)}</strong><small>${esc(item.type)} · ${esc(rarityLabel(item.rarity))}</small></article>`
+          :`<article class="codex-item codex-locked"><span class="codex-icon" aria-hidden="true">?</span><strong>Undiscovered</strong><small>Keep summoning</small></article>`).join("")}</div>
+      </section>`;
+  }
+  function createMemoryGame() {
+    const symbols=["🌙","⭐","🪐","☄️","🌌","✨","🌠","🛰️"];
+    const deck=[...symbols,...symbols].map((symbol,index)=>({id:index,symbol,matched:false,revealed:false}));
+    for(let i=deck.length-1;i>0;i--){
+      const j=Math.floor(Math.random()*(i+1));
+      [deck[i],deck[j]]=[deck[j],deck[i]];
+    }
+    return {deck,first:null,locked:false,combo:0,matches:0};
+  }
+  function renderMemoryBoard() {
+    const board=$("#memory-board");
+    if(!board||!memoryGame)return;
+    board.innerHTML=memoryGame.deck.map((card,index)=>`<button type="button" class="memory-card ${card.matched?"matched":""}" data-memory-card="${index}" aria-label="${card.revealed||card.matched?`${card.symbol} card`:"Hidden constellation card"}" aria-pressed="${card.revealed||card.matched}">${card.revealed||card.matched?card.symbol:"✦"}</button>`).join("");
+    const status=$("#memory-status");
+    if(status)status.textContent=memoryGame.matches===8?"Constellation complete!":memoryGame.combo>1?`Combo ×${memoryGame.combo} · keep going!`:"Match a pair for coins";
+  }
+  function handleMemoryCard(button) {
+    if(!memoryGame||memoryGame.locked)return;
+    const index=Number(button.dataset.memoryCard);
+    const card=memoryGame.deck[index];
+    if(!card||card.matched||card.revealed)return;
+    card.revealed=true;
+    if(memoryGame.first===null){
+      memoryGame.first=index;
+      renderMemoryBoard();
+      return;
+    }
+    const first=memoryGame.deck[memoryGame.first];
+    if(first.symbol===card.symbol){
+      first.matched=true;
+      card.matched=true;
+      memoryGame.first=null;
+      memoryGame.combo+=1;
+      memoryGame.matches+=1;
+      const reward=10+Math.min(memoryGame.combo-1,5)*4;
+      addStudyCoins(reward);
+      toast(`Matched! +${reward} Study Coins · combo ×${memoryGame.combo}`);
+      renderMemoryBoard();
+      return;
+    }
+    memoryGame.combo=0;
+    memoryGame.locked=true;
+    renderMemoryBoard();
+    const activeGame=memoryGame;
+    window.setTimeout(()=>{
+      if(memoryGame!==activeGame)return;
+      first.revealed=false;
+      card.revealed=false;
+      activeGame.first=null;
+      activeGame.locked=false;
+      renderMemoryBoard();
+    },750);
+  }
+  function initializeArcade() {
+    renderMemoryBoard();
+    const canvas=$("#jumper-canvas");
+    const context=canvas?.getContext("2d");
+    if(!canvas||!context)return null;
+    let width=canvas.clientWidth||480;
+    const height=520;
+    let ratio=Math.min(window.devicePixelRatio||1,2);
+    function resizeCanvas(){
+      width=canvas.clientWidth||480;
+      ratio=Math.min(window.devicePixelRatio||1,2);
+      canvas.width=width*ratio;
+      canvas.height=height*ratio;
+      context.setTransform(ratio,0,0,ratio,0,0);
+    }
+    const player={x:width/2-13,y:height-95,w:26,h:30,vy:-10.5,vx:0};
+    let camera=0;
+    let score=0;
+    let ended=false;
+    let lastTimestamp=0;
+    let platforms=[];
+    let stars=[];
+    let keys=new Set();
+    function reset() {
+      player.x=width/2-13;
+      player.y=height-95;
+      player.vx=0;
+      player.vy=-10.5;
+      camera=0;
+      score=0;
+      ended=false;
+      platforms=Array.from({length:7},(_,i)=>({x:Math.random()*(width-90),y:height-28-i*90,w:72+Math.random()*18}));
+      platforms[0].x=width/2-36;
+      stars=platforms.slice(2).map(platform=>({x:platform.x+platform.w/2,y:platform.y-28,collected:false}));
+      $("#jumper-score").textContent="0";
+    }
+    function keyDown(event) {
+      if(activeView!=="arcade"||!["ArrowLeft","ArrowRight","a","A","d","D"," "].includes(event.key))return;
+      keys.add(event.key.toLowerCase());
+      if(["ArrowLeft","ArrowRight"," "].includes(event.key))event.preventDefault();
+    }
+    function keyUp(event) { keys.delete(event.key.toLowerCase()); }
+    function pointerJump(event) {
+      if(ended)reset();
+      const bounds=canvas.getBoundingClientRect();
+      const side=event.clientX-bounds.left<bounds.width/2?-1:1;
+      player.vx=side*4;
+      player.vy=Math.min(player.vy,-9);
+    }
+    function frame(timestamp) {
+      if(activeView!=="arcade")return;
+      const delta=Math.min(2,(timestamp-lastTimestamp)/16.67||1);
+      lastTimestamp=timestamp;
+      if(!ended){
+        if(keys.has("arrowleft")||keys.has("a"))player.vx-=.45*delta;
+        if(keys.has("arrowright")||keys.has("d"))player.vx+=.45*delta;
+        player.vx*=Math.pow(.92,delta);
+        player.vx=Math.max(-5,Math.min(5,player.vx));
+        const previousY=player.y;
+        player.x+=player.vx*delta;
+        player.x=(player.x+width)%width;
+        player.vy+=.38*delta;
+        player.y+=player.vy*delta;
+        if(player.vy>0){
+          for(const platform of platforms){
+            if(previousY+player.h<=platform.y&&player.y+player.h>=platform.y&&player.x+player.w>platform.x&&player.x<platform.x+platform.w){
+              player.y=platform.y-player.h;
+              player.vy=-10.2;
+              break;
+            }
+          }
+        }
+        camera=Math.min(camera,player.y-height*.42);
+        const top=Math.min(...platforms.map(platform=>platform.y));
+        if(top>camera-180){
+          const platformY=top-82-Math.random()*36;
+          platforms.push({x:Math.random()*(width-86),y:platformY,w:68+Math.random()*22});
+          if(Math.random()>.25)stars.push({x:Math.random()*(width-24)+12,y:platformY-32,collected:false});
+        }
+        platforms=platforms.filter(platform=>platform.y<camera+height+50);
+        for(const star of stars){
+          if(!star.collected&&Math.hypot(player.x+player.w/2-star.x,player.y+player.h/2-star.y)<25){
+            star.collected=true;
+            score+=1;
+            addStudyCoins(5);
+            $("#jumper-score").textContent=String(score);
+          }
+        }
+        stars=stars.filter(star=>!star.collected&&star.y<camera+height+50);
+        if(player.y-camera>height+60)ended=true;
+      }
+      const sky=context.createLinearGradient(0,0,0,height);
+      sky.addColorStop(0,"#101a35");sky.addColorStop(1,"#172447");
+      context.fillStyle=sky;context.fillRect(0,0,width,height);
+      for(let i=0;i<34;i++){
+        const x=(i*83+21)%width,y=(i*137+timestamp*.008)%height;
+        context.fillStyle=`rgba(216,231,255,${.22+(i%4)*.12})`;
+        context.beginPath();context.arc(x,y,1+(i%3)*.35,0,Math.PI*2);context.fill();
+      }
+      for(const platform of platforms){
+        const y=platform.y-camera;
+        context.fillStyle="#80e3ce";context.shadowColor="#67e8d4";context.shadowBlur=14;
+        context.beginPath();context.roundRect(platform.x,y,platform.w,10,6);context.fill();
+      }
+      context.shadowBlur=0;
+      for(const star of stars){
+        const y=star.y-camera;
+        context.fillStyle="#fde68a";context.shadowColor="#fcd34d";context.shadowBlur=14;
+        context.font="19px system-ui";context.textAlign="center";context.fillText("✦",star.x,y);
+      }
+      context.shadowBlur=12;context.shadowColor="#c4b5fd";context.fillStyle="#ddd6fe";
+      context.beginPath();context.roundRect(player.x,player.y-camera,player.w,player.h,12);context.fill();
+      context.shadowBlur=0;context.fillStyle="#4c1d95";
+      context.beginPath();context.arc(player.x+9,player.y-camera+11,2,0,Math.PI*2);context.arc(player.x+18,player.y-camera+11,2,0,Math.PI*2);context.fill();
+      if(ended){
+        context.fillStyle="rgba(8,13,28,.72)";context.fillRect(0,0,width,height);
+        context.fillStyle="#f8fafc";context.textAlign="center";context.font="700 18px system-ui";context.fillText("A soft landing!",width/2,height/2-8);
+        context.font="13px system-ui";context.fillText("Tap Restart to bounce again",width/2,height/2+18);
+      }
+      animationId=requestAnimationFrame(frame);
+    }
+    let animationId=0;
+    function restartClick() { reset(); }
+    const restart=$("#view-root [data-action='jumper-restart']");
+    restart?.addEventListener("click",restartClick);
+    canvas.addEventListener("pointerdown",pointerJump);
+    window.addEventListener("resize",resizeCanvas);
+    window.addEventListener("keydown",keyDown);
+    window.addEventListener("keyup",keyUp);
+    resizeCanvas();
+    reset();
+    animationId=requestAnimationFrame(frame);
+    return ()=>{
+      cancelAnimationFrame(animationId);
+      canvas.removeEventListener("pointerdown",pointerJump);
+      window.removeEventListener("resize",resizeCanvas);
+      window.removeEventListener("keydown",keyDown);
+      window.removeEventListener("keyup",keyUp);
+      restart?.removeEventListener("click",restartClick);
+    };
+  }
+  function rarityRoll() {
+    const chance=Math.random();
+    if(chance<.002)return "Mythic";
+    if(chance<.04)return "Legendary";
+    if(chance<.16)return "Epic";
+    if(chance<.44)return "Rare";
+    return "Common";
+  }
+  function summonItem(rarity) {
+    const options=gachaCatalog.filter(item=>item.rarity===rarity);
+    return options[Math.floor(Math.random()*options.length)];
+  }
+  function refreshCodex() {
+    const codex=$(".codex-grid");
+    if(!codex)return;
+    const unlocked=new Set(arcadeSave.unlocked);
+    const count=$("#codex-count");
+    if(count)count.textContent=String(unlocked.size);
+    codex.innerHTML=gachaCatalog.map(item=>unlocked.has(item.id)
+      ?`<article class="codex-item rarity-${item.rarity.toLowerCase()}"><span class="codex-icon" aria-hidden="true">${item.icon}</span><strong>${esc(item.name)}</strong><small>${esc(item.type)} · ${esc(rarityLabel(item.rarity))}</small></article>`
+      :`<article class="codex-item codex-locked"><span class="codex-icon" aria-hidden="true">?</span><strong>Undiscovered</strong><small>Keep summoning</small></article>`).join("");
+  }
+  function performGachaPull(count) {
+    if(gachaBusy)return;
+    const cost=count===10?900:100;
+    if(arcadeSave.coins<cost){
+      toast(`You need ${cost} Study Coins for this pull.`,"error");
+      return;
+    }
+    gachaBusy=true;
+    const chamber=$("#summon-chamber");
+    const status=$("#gacha-status");
+    const resultRoot=$("#gacha-results");
+    const buttons=$$("[data-action^='gacha-']");
+    buttons.forEach(button=>button.disabled=true);
+    arcadeSave.coins-=cost;
+    const results=[];
+    for(let index=0;index<count;index++){
+      const nextPity=arcadeSave.pity+1;
+      let rarity=nextPity>=50?"Legendary":rarityRoll();
+      if(rarity==="Legendary")arcadeSave.pity=0;
+      else arcadeSave.pity=nextPity;
+      results.push(summonItem(rarity));
+    }
+    if(count===10&&!results.some(item=>["Rare","Epic","Legendary","Mythic"].includes(item.rarity))){
+      results[0]=summonItem("Rare");
+    }
+    let duplicateCoins=0;
+    results.forEach(item=>{
+      if(arcadeSave.unlocked.includes(item.id)){
+        duplicateCoins+={Common:10,Rare:20,Epic:35,Legendary:60,Mythic:100}[item.rarity];
+      }else arcadeSave.unlocked.push(item.id);
+    });
+    arcadeSave.coins=Math.min(Number.MAX_SAFE_INTEGER,arcadeSave.coins+duplicateCoins);
+    saveArcadeProgress();
+    updateArcadeWallet();
+    refreshCodex();
+    chamber?.classList.add("summoning");
+    status.textContent=count===10?"The constellation is gathering…":"A keepsake is on its way…";
+    resultRoot.innerHTML=Array.from({length:24},(_,index)=>`<span class="gacha-spark" style="--spark-x:${Math.cos(index/24*Math.PI*2)*120}px;--spark-y:${Math.sin(index/24*Math.PI*2)*100}px;--spark-delay:${index%8*.025}s"></span>`).join("");
+    window.setTimeout(()=>{
+      chamber?.classList.remove("summoning");
+      resultRoot.innerHTML=`<div class="gacha-pulls">${results.map(item=>`<article class="pull-card rarity-${item.rarity.toLowerCase()}"><span aria-hidden="true">${item.icon}</span><strong>${esc(item.name)}</strong><small>${esc(rarityLabel(item.rarity))} · ${esc(item.type)}</small></article>`).join("")}</div>`;
+      status.textContent=duplicateCoins?`Summoned ${count} item${count===1?"":"s"} · duplicate conversion +${duplicateCoins} coins.`:`Summoned ${count} cosmic keepsake${count===1?"":"s"}!`;
+      gachaBusy=false;
+      buttons.forEach(button=>button.disabled=false);
+    },1250);
+  }
+  function makeScleraTexture() {
+    const canvas=document.createElement("canvas");
+    canvas.width=1024;canvas.height=512;
+    const context=canvas.getContext("2d");
+    const base=context.createLinearGradient(0,0,0,512);
+    base.addColorStop(0,"#f7f5ef");base.addColorStop(.48,"#fffdf7");base.addColorStop(1,"#e8e3dd");
+    context.fillStyle=base;context.fillRect(0,0,1024,512);
+    for(let i=0;i<130;i++){
+      const edge=Math.random()>.5;
+      const x=edge?(Math.random()>.5?0:1024):Math.random()*1024;
+      const y=edge?Math.random()*512:(Math.random()>.5?0:512);
+      const angle=Math.atan2(256-y,512-x)+(Math.random()-.5)*.8;
+      const length=40+Math.random()*150;
+      context.beginPath();context.moveTo(x,y);
+      context.bezierCurveTo(
+        x+Math.cos(angle+.4)*length*.3,y+Math.sin(angle+.4)*length*.3,
+        x+Math.cos(angle-.25)*length*.7,y+Math.sin(angle-.25)*length*.7,
+        x+Math.cos(angle)*length,y+Math.sin(angle)*length
+      );
+      context.strokeStyle=`rgba(${Math.random()>.5?"170,73,81":"184,94,97"},${.045+Math.random()*.09})`;
+      context.lineWidth=.6+Math.random()*1.3;context.stroke();
+      if(i%3===0){
+        const branchX=x+Math.cos(angle)*length*.52,branchY=y+Math.sin(angle)*length*.52;
+        context.beginPath();context.moveTo(branchX,branchY);
+        context.quadraticCurveTo(branchX+Math.cos(angle+1)*20,branchY+Math.sin(angle+1)*20,branchX+Math.cos(angle+1.35)*45,branchY+Math.sin(angle+1.35)*45);
+        context.strokeStyle="rgba(178,85,92,.07)";context.lineWidth=.7;context.stroke();
+      }
+    }
+    const texture=new THREE.CanvasTexture(canvas);
+    texture.colorSpace=THREE.SRGBColorSpace;
+    return texture;
+  }
+  function makeIrisTexture() {
+    const canvas=document.createElement("canvas");
+    canvas.width=1024;canvas.height=1024;
+    const context=canvas.getContext("2d");
+    const center=512;
+    const gradient=context.createRadialGradient(center,center,115,center,center,505);
+    gradient.addColorStop(0,"#050812");gradient.addColorStop(.25,"#0a1427");gradient.addColorStop(.32,"#07394a");
+    gradient.addColorStop(.58,"#078b8b");gradient.addColorStop(.78,"#1b477d");gradient.addColorStop(1,"#101426");
+    context.fillStyle=gradient;context.fillRect(0,0,1024,1024);
+    const colors=["#06b6d4","#10b981","#6366f1","#67e8f9","#34d399","#8b5cf6"];
+    for(let i=0;i<900;i++){
+      const angle=Math.random()*Math.PI*2;
+      const inner=142+Math.random()*60;
+      const outer=340+Math.random()*150;
+      context.beginPath();
+      context.moveTo(center+Math.cos(angle)*inner,center+Math.sin(angle)*inner);
+      context.quadraticCurveTo(
+        center+Math.cos(angle+.025)*((inner+outer)/2),
+        center+Math.sin(angle+.025)*((inner+outer)/2),
+        center+Math.cos(angle+(Math.random()-.5)*.06)*outer,
+        center+Math.sin(angle+(Math.random()-.5)*.06)*outer
+      );
+      context.strokeStyle=colors[i%colors.length];
+      context.globalAlpha=.12+Math.random()*.52;
+      context.lineWidth=.6+Math.random()*2.2;context.stroke();
+    }
+    context.globalAlpha=1;
+    context.beginPath();context.arc(center,center,140,0,Math.PI*2);
+    context.fillStyle="#010208";context.fill();
+    context.beginPath();context.arc(center,center,149,0,Math.PI*2);
+    context.strokeStyle="rgba(119,242,231,.85)";context.lineWidth=7;context.stroke();
+    const texture=new THREE.CanvasTexture(canvas);
+    texture.colorSpace=THREE.SRGBColorSpace;
+    return texture;
+  }
+  function initializeEyeBackground() {
+    const canvas=$("#bg-3d-canvas");
+    if(!canvas||!window.THREE)return;
+    try{
+      const THREE=window.THREE;
+      const renderer=new THREE.WebGLRenderer({canvas,alpha:true,antialias:true});
+      renderer.setPixelRatio(Math.min(window.devicePixelRatio||1,2));
+      renderer.setClearColor(0x000000,0);
+      renderer.outputColorSpace=THREE.SRGBColorSpace;
+      renderer.toneMapping=THREE.ACESFilmicToneMapping;
+      const scene=new THREE.Scene();
+      const camera=new THREE.PerspectiveCamera(36,window.innerWidth/window.innerHeight,.1,100);
+      camera.position.z=8.5;
+      const eye=new THREE.Group();
+      scene.add(eye);
+      const sclera=new THREE.Mesh(
+        new THREE.SphereGeometry(1.7,128,96),
+        new THREE.MeshStandardMaterial({map:makeScleraTexture(),roughness:.32,metalness:0})
+      );
+      eye.add(sclera);
+      const iris=new THREE.Mesh(
+        new THREE.CircleGeometry(.65,160),
+        new THREE.MeshStandardMaterial({map:makeIrisTexture(),roughness:.38,metalness:.08})
+      );
+      iris.position.z=1.705;
+      eye.add(iris);
+      const cornea=new THREE.Mesh(
+        new THREE.SphereGeometry(1.75,128,96),
+        new THREE.MeshPhysicalMaterial({
+          color:0xffffff,metalness:0,roughness:.05,transmission:.9,thickness:.25,
+          clearcoat:1,clearcoatRoughness:.025,ior:1.45,transparent:true,opacity:.32
+        })
+      );
+      eye.add(cornea);
+      const ambient=new THREE.AmbientLight(0xd8efff,1.15);
+      scene.add(ambient);
+      const keyLight=new THREE.PointLight(0x06b6d4,25,18);
+      keyLight.position.set(-3,3,5);scene.add(keyLight);
+      const fillLight=new THREE.PointLight(0x10b981,18,18);
+      fillLight.position.set(4,-2,4);scene.add(fillLight);
+      const rimLight=new THREE.PointLight(0x8b5cf6,21,18);
+      rimLight.position.set(0,4,-3);scene.add(rimLight);
+      const pointer={x:0,y:0};
+      const target={x:0,y:0};
+      let micro={x:0,y:0};
+      let nextTwitch=performance.now()+1800;
+      function trackPointer(event){
+        target.x=(event.clientX/window.innerWidth)*2-1;
+        target.y=1-(event.clientY/window.innerHeight)*2;
+      }
+      function resize(){
+        const width=window.innerWidth,height=window.innerHeight;
+        camera.aspect=width/height;camera.updateProjectionMatrix();renderer.setSize(width,height,false);
+        const wide=width/height>1.15;
+        eye.scale.setScalar(wide ? 0.72 : 0.58);
+        eye.position.x=wide ? 2.05 : 0.45;
+        eye.position.y=wide ? -0.05 : 0.05;
+      }
+      function animate(now){
+        requestAnimationFrame(animate);
+        pointer.x+=(target.x-pointer.x)*.035;
+        pointer.y+=(target.y-pointer.y)*.035;
+        if(now>nextTwitch){
+          micro={x:(Math.random()-.5)*.055,y:(Math.random()-.5)*.06};
+          nextTwitch=now+1700+Math.random()*2600;
+        }else{
+          micro.x*=.9;micro.y*=.9;
+        }
+        eye.rotation.y+=(pointer.x*.28+micro.x-eye.rotation.y)*.055;
+        eye.rotation.x+=(-pointer.y*.2+micro.y-eye.rotation.x)*.055;
+        keyLight.position.x=-3+pointer.x*1.2;
+        fillLight.position.y=-2+pointer.y;
+        renderer.render(scene,camera);
+      }
+      window.addEventListener("mousemove",trackPointer,{passive:true});
+      window.addEventListener("resize",resize);
+      resize();requestAnimationFrame(animate);
+    }catch(error){
+      console.warn("The 3D eye background could not be initialized:",error);
+    }
   }
   function renderAdmin() {
     if (!Security.isAdminAuthenticated()) {
@@ -438,7 +945,7 @@
     if (adminTab === "reminders") return `<div class="mb-4 flex items-center justify-between gap-3"><div><h2 class="text-lg font-bold">Class-wide reminders</h2><p class="text-xs text-slate-400">Create, edit, pin, and remove announcements.</p></div><button class="btn btn-primary" data-action="new-reminder">${icon("plus")} New reminder</button></div><div class="space-y-3">${state.reminders.map(item=>reminderCard(item)).join("")||`<div class="empty-state">No reminders yet.</div>`}</div>`;
     if (adminTab === "schedule") return `<div class="mb-4 flex items-center justify-between gap-3"><div><h2 class="text-lg font-bold">Temporary schedule changes</h2><p class="text-xs text-slate-400">Post a dated room change, online shift, absence, or cancellation. The base timetable remains intact.</p></div><button class="btn btn-primary" data-action="new-override">${icon("plus")} Add override</button></div><div class="mb-4 flex flex-wrap items-center justify-between gap-2"><span class="text-xs text-slate-400">${state.scheduleOverrides.length} active record(s)</span><button class="btn btn-danger" data-action="reset-overrides">${icon("rotate-ccw")} Reset to official timetable</button></div><div class="space-y-2">${state.scheduleOverrides.map(item=>`<article class="flex flex-wrap items-start justify-between gap-3 rounded-xl border border-slate-700/40 p-3"><div><span class="tag">${esc(item.date)}</span><span class="tag ml-1">${esc(item.status)}</span><h3 class="mt-2 text-sm font-semibold">${esc(item.scheduleId==="*"?"All classes":state.schedule.find(s=>s.id===item.scheduleId)?.title||"Removed class")}</h3><p class="mt-1 text-xs text-slate-400">${esc(item.room)} ${esc(item.message)}</p></div><div class="flex gap-2"><button class="btn !p-2" data-action="edit-override" data-id="${esc(item.id)}" aria-label="Edit override">${icon("pencil")}</button><button class="btn btn-danger !p-2" data-action="delete-override" data-id="${esc(item.id)}" aria-label="Delete override">${icon("trash-2")}</button></div></article>`).join("")||`<div class="empty-state">No temporary schedule changes.</div>`}</div>`;
     if (adminTab === "reviews") return `<div class="mb-4 flex items-center justify-between gap-3"><div><h2 class="text-lg font-bold">Subject know-hows</h2><p class="text-xs text-slate-400">Maintain section lecture summaries, formulas, topics, and snippets.</p></div><button class="btn btn-primary" data-action="new-review">${icon("plus")} Add guide</button></div><div class="space-y-2">${state.reviews.map(item=>`<article class="flex flex-wrap items-center justify-between gap-2 rounded-xl border border-slate-700/40 p-3"><div><div class="eyebrow">${esc(item.subject)}</div><div class="mt-1 text-sm font-semibold">${esc(item.title)}</div></div><div class="flex gap-2"><button class="btn" data-action="edit-review" data-id="${esc(item.id)}">${icon("pencil")} Edit</button><button class="btn btn-danger !p-2" data-action="delete-review" data-id="${esc(item.id)}" aria-label="Delete guide">${icon("trash-2")}</button></div></article>`).join("")}</div>`;
-    if (adminTab === "banner") return `<div class="max-w-2xl"><div class="eyebrow">Emergency broadcast</div><h2 class="mt-1 text-lg font-bold">Section-wide alert banner</h2><p class="mt-2 text-xs leading-relaxed text-slate-400">Reserve for urgent changes such as suspensions, room shifts, or safety updates. Confirm facts through official HAU channels.</p><p class="mt-4 text-sm font-semibold" role="status" aria-live="polite">Status: <span class="${state.emergencyBanner.active?"text-rose-300":"text-slate-400"}">${state.emergencyBanner.active?"ACTIVE":"INACTIVE"}</span></p>${state.emergencyBanner.active?`<div class="mt-3 rounded-xl border border-rose-400/30 bg-rose-500/10 p-4 text-sm text-rose-100"><strong class="mr-2 text-xs uppercase">Live banner</strong>${esc(state.emergencyBanner.message)}</div>`:`<div class="mt-3 rounded-xl border border-slate-700/40 p-4 text-sm text-slate-500">No emergency notice is active.</div>`}<form class="mt-4 space-y-3" data-form="emergency"><label class="field-label">Banner message<textarea class="field min-h-24" name="message" maxlength="2000" placeholder="Example: The instructor has moved today's class to an online session." required>${esc(state.emergencyBanner.message)}</textarea></label><div class="flex flex-wrap gap-2"><button class="btn btn-primary" type="submit">${icon("radio")} Publish / Update Banner</button><button class="btn btn-danger" type="button" data-action="deactivate-banner">${icon("circle-stop")} Deactivate Banner</button></div></form></div>`;
+    if (adminTab === "banner") return `<div class="max-w-2xl"><div class="eyebrow">Emergency broadcast</div><h2 class="mt-1 text-lg font-bold">Section-wide alert banner</h2><p class="mt-2 text-xs leading-relaxed text-slate-400">Reserve for urgent changes such as suspensions, room shifts, or safety updates. Confirm facts through official HAU channels.</p><p class="mt-4 text-sm font-semibold" role="status" aria-live="polite">Status: <span class="tag ${state.emergencyBanner.active?"tag-critical":"tag-low"}">${state.emergencyBanner.active?"ACTIVE":"INACTIVE"}</span>${state.emergencyBanner.updatedAt?`<span class="ml-2 text-xs font-normal text-slate-500">Updated ${esc(new Date(state.emergencyBanner.updatedAt).toLocaleString(undefined,{dateStyle:"medium",timeStyle:"short"}))}</span>`:""}</p>${state.emergencyBanner.active?`<div class="mt-3 rounded-xl border border-rose-400/30 bg-rose-500/10 p-4 text-sm text-rose-100"><strong class="mr-2 text-xs uppercase">Live banner</strong>${esc(state.emergencyBanner.message)}</div>`:`<div class="mt-3 rounded-xl border border-slate-700/40 p-4 text-sm text-slate-500">No emergency notice is active.</div>`}<form class="mt-4 space-y-3" data-form="emergency"><label class="field-label">Banner message<textarea class="field min-h-24" name="message" maxlength="2000" placeholder="Example: The instructor has moved today's class to an online session." required>${esc(state.emergencyBanner.message)}</textarea></label><div class="flex flex-wrap gap-2"><button class="btn btn-primary" type="submit">${icon("radio")} Publish / Update Banner</button><button class="btn btn-danger" type="button" data-action="deactivate-banner">${icon("circle-stop")} Deactivate Banner</button></div></form></div>`;
     if (adminTab === "ai") return `<div class="max-w-3xl"><div class="eyebrow">Administrator-only drafting assistant</div><h2 class="mt-1 text-lg font-bold">Ai-Ai delas Alas</h2><p class="mt-2 text-xs leading-relaxed text-slate-400">Generate drafts for reminders, subject know-hows, or schedule overrides. The assistant cannot save changes. Review and edit the JSON below, then explicitly save through the standard protected class-state endpoint.</p><form class="mt-4 space-y-3" data-form="admin-ai"><div class="grid gap-3 sm:grid-cols-2"><label class="field-label">Draft type<select class="field" name="type"><option value="reminder">Reminder</option><option value="review">Subject know-how / review guide</option><option value="scheduleOverride">Schedule override</option></select></label><label class="field-label">Draft instructions<input id="admin-ai-prompt" class="field" name="prompt" maxlength="2000" placeholder="Describe the details to include…" required></label></div><button class="btn btn-primary" type="submit">${icon("sparkles")} Generate draft</button></form><label class="field-label mt-4 block">Review and edit draft JSON<textarea id="admin-ai-result" class="field mt-2 min-h-64 font-mono text-xs" maxlength="20000" spellcheck="false" placeholder="The generated draft will appear here. Review all values before saving."></textarea></label><p id="admin-ai-status" class="mt-2 min-h-5 text-xs text-slate-400" role="status" aria-live="polite"></p><button class="btn btn-primary mt-3" type="button" data-action="save-ai-draft">${icon("check")} Save reviewed draft</button></div>`;
     return `<div class="grid gap-4 lg:grid-cols-2"><article><div class="eyebrow">Shared data</div><h2 class="mt-1 text-lg font-bold">Backup & synchronization</h2><p class="mt-2 text-xs leading-relaxed text-slate-400">Export a versioned snapshot or import a validated JSON file. Imports replace shared class data for every visitor after server validation.</p><button class="btn btn-primary mt-4" data-action="export">${icon("download")} Export class state</button><div id="drop-zone" class="drop-zone mt-4" tabindex="0">Drop a class-state JSON file here, or <button class="underline text-emerald-200" data-action="import">choose a file</button></div></article><article class="rounded-xl border border-rose-300/20 bg-rose-400/5 p-4"><div class="eyebrow text-rose-200">Caution</div><h2 class="mt-1 text-lg font-bold">Reset shared state</h2><p class="mt-2 text-xs leading-relaxed text-slate-400">This restores the official seed state and removes all shared announcements, edits, and schedule overrides.</p><button class="btn btn-danger mt-4" data-action="hard-reset">${icon("rotate-ccw")} Reset to defaults</button></article></div><p class="mt-5 text-[11px] text-slate-500">Schema v${state.schemaVersion} · Revision ${revision ?? "—"} · Updated ${esc(lastStateSync?new Date(lastStateSync).toLocaleTimeString():"—")}</p>`;
   }
@@ -621,20 +1128,6 @@
       },"Subject review guide saved.");
     });
   }
-  function cheatForm(item = {}) {
-    const body=`${formField("Group","group",item.group||"Linux / Cyber Terminal","text",true,'maxlength="120"')}
-      ${formField("Title","title",item.title||"","text",true,'maxlength="240"')}
-      ${multilineField("Command / syntax","code",item.code||"")}
-      ${multilineField("Description and scope note","description",item.description||"")}`;
-    openModal(item.id?"Edit cheat sheet":"Add cheat sheet",body,form=>{
-      const values=Object.fromEntries(form.entries());
-      const record={id:item.id||crypto.randomUUID(),group:Security.sanitizeHTML(values.group).trim(),title:Security.sanitizeHTML(values.title).trim(),code:Security.sanitizeHTML(values.code),description:Security.sanitizeHTML(values.description)};
-      return commitState(next=>{
-        const index=next.cheatSheets.findIndex(entry=>entry.id===record.id);
-        if(index>=0)next.cheatSheets[index]=record;else next.cheatSheets.push(record);
-      },"Cheat sheet saved.");
-    });
-  }
   function confirmModal(title,message,callback,label="Confirm") {
     openModal(title,`<p class="text-sm leading-relaxed text-slate-300">${esc(message)}</p>`,async()=>callback(),label);
   }
@@ -677,7 +1170,7 @@
   }
   function openPalette() {
     const mount=$("#palette-mount");
-    mount.innerHTML=`<div class="palette-backdrop" data-palette-backdrop><section class="palette-card panel-card" role="dialog" aria-modal="true" aria-label="Spotlight search"><label class="sr-only" for="spotlight-input">Search class hub</label><div class="flex items-center gap-3 border-b border-slate-700/50 px-4 py-3">${icon("search","h-5 w-5 text-slate-400")}<input id="spotlight-input" class="min-w-0 flex-1 bg-transparent text-sm text-white outline-none placeholder:text-slate-500" placeholder="Search subjects, rooms, announcements, formulas, and commands…" autocomplete="off"><kbd>ESC</kbd></div><div id="palette-results" class="palette-results scrollbar"></div><div class="border-t border-slate-700/40 px-4 py-2 text-[10px] text-slate-500">↑↓ navigate <span class="px-1">·</span> Enter open <span class="px-1">·</span> Esc close</div></section></div>`;
+    mount.innerHTML=`<div class="palette-backdrop" data-palette-backdrop><section class="palette-card panel-card" role="dialog" aria-modal="true" aria-label="Spotlight search"><label class="sr-only" for="spotlight-input">Search class hub</label><div class="flex items-center gap-3 border-b border-slate-700/50 px-4 py-3">${icon("search","h-5 w-5 text-slate-400")}<input id="spotlight-input" class="min-w-0 flex-1 bg-transparent text-sm text-white outline-none placeholder:text-slate-500" placeholder="Search subjects, rooms, announcements, and formulas…" autocomplete="off"><kbd>ESC</kbd></div><div id="palette-results" class="palette-results scrollbar"></div><div class="border-t border-slate-700/40 px-4 py-2 text-[10px] text-slate-500">↑↓ navigate <span class="px-1">·</span> Enter open <span class="px-1">·</span> Esc close</div></section></div>`;
     refreshIcons(mount);
     $("#spotlight-input").addEventListener("input",event=>updatePalette(event.target.value));
     $("#spotlight-input").addEventListener("keydown",paletteKeydown);
@@ -691,7 +1184,6 @@
     state.schedule.forEach(item=>items.push({label:item.title,detail:`${item.subject} · ${item.day} · ${timeText(item.start)} · ${item.room} · ${roomGuide(item.room)}`,view:"schedule",text:`${item.title} ${item.subject} ${item.room} ${item.code} ${item.day} ${roomGuide(item.room)}`}));
     state.reminders.forEach(item=>items.push({label:item.title,detail:`Reminder · ${item.subject} · ${item.category}${item.dueAt?` · ${dateText(item.dueAt)}`:""}`,view:"reminders",text:`${item.title} ${item.subject} ${item.category} ${item.description}`}));
     state.reviews.forEach(item=>items.push({label:item.title,detail:`Review · ${item.subject} · ${item.topics.join(", ")}`,view:"reviews",text:`${item.subject} ${item.title} ${item.summary} ${item.topics.join(" ")} ${item.formulas} ${item.snippets.join(" ")}`}));
-    state.cheatSheets.forEach(item=>items.push({label:item.title,detail:`Cheat sheet · ${item.group}`,view:"terminal",text:`${item.group} ${item.title} ${item.description} ${item.code}`}));
     return items;
   }
   function searchScore(query,text) {
@@ -727,7 +1219,7 @@
     searchResults=buildSearchItems().map(item=>({...item,score:searchScore(query,item.text)}))
       .filter(item=>item.score>0).sort((a,b)=>b.score-a.score).slice(0,18);
     searchIndex=0;
-    results.innerHTML=searchResults.length?searchResults.map((item,index)=>`<button class="palette-result" data-palette-index="${index}" aria-selected="${index===0}"><span class="palette-icon">${icon(item.view==="schedule"?"calendar-days":item.view==="terminal"?"terminal-square":item.view==="reminders"?"bell":"book-open")}</span><span class="min-w-0 flex-1"><span class="block truncate text-sm font-semibold">${esc(item.label)}</span><small class="truncate">${esc(item.detail)}</small></span>${icon("arrow-up-right","h-3.5 w-3.5 text-slate-500")}</button>`).join(""):`<div class="p-7 text-center text-sm text-slate-400">${query.trim()?"No match found. Try a subject code, room prefix, or key term.":"Start typing to search the class hub."}</div>`;
+    results.innerHTML=searchResults.length?searchResults.map((item,index)=>`<button class="palette-result" data-palette-index="${index}" aria-selected="${index===0}"><span class="palette-icon">${icon(item.view==="schedule"?"calendar-days":item.view==="arcade"?"gamepad-2":item.view==="reminders"?"bell":"book-open")}</span><span class="min-w-0 flex-1"><span class="block truncate text-sm font-semibold">${esc(item.label)}</span><small class="truncate">${esc(item.detail)}</small></span>${icon("arrow-up-right","h-3.5 w-3.5 text-slate-500")}</button>`).join(""):`<div class="p-7 text-center text-sm text-slate-400">${query.trim()?"No match found. Try a subject code, room prefix, or key term.":"Start typing to search the class hub."}</div>`;
     refreshIcons(results);
   }
   function paletteKeydown(event) {
@@ -810,8 +1302,8 @@
       const payload=JSON.parse(await file.text());
       if(payload.format!=="cyb202-class-state"||payload.schemaVersion!==1)throw new Error("This is not a supported CYB-202 class-state snapshot.");
       const imported=Security.validateClassState(payload.state);
-      confirmModal("Replace shared class data?","This replaces the shared timetable edits, reminders, review guides, cheat sheets, and emergency banner for everyone.",()=>commitState(next=>{
-        for(const key of ["schedule","subjects","reminders","reviews","cheatSheets","scheduleOverrides"])next[key]=clone(imported[key]);
+      confirmModal("Replace shared class data?","This replaces the shared timetable edits, reminders, review guides, and emergency banner for everyone.",()=>commitState(next=>{
+        for(const key of ["schedule","subjects","reminders","reviews","scheduleOverrides"])next[key]=clone(imported[key]);
         next.emergencyBanner=clone(imported.emergencyBanner);
       },"Class snapshot imported."));
     }catch(error){toast(`Import failed: ${error.message}`,"error");}
@@ -837,6 +1329,9 @@
     const id=element.dataset.id;
     if(action==="login")loginModal();
     else if(action==="logout")logout();
+    else if(action==="memory-restart"){memoryGame=createMemoryGame();renderMemoryBoard();}
+    else if(action==="gacha-1x")performGachaPull(1);
+    else if(action==="gacha-10x")performGachaPull(10);
     else if(action==="dismiss-banner"){
       const updatedAt=String(state.emergencyBanner?.updatedAt||"");
       try{
@@ -864,9 +1359,6 @@
     else if(action==="new-review")requireAdminAction("create a review guide")&&reviewForm();
     else if(action==="edit-review"){if(requireAdminAction("edit a review guide")){const item=state.reviews.find(entry=>entry.id===id);if(item)reviewForm(item);}}
     else if(action==="delete-review"){if(requireAdminAction("delete a review guide"))confirmModal("Delete this subject guide?","This removes the guide from shared course reviews.",()=>commitState(next=>{next.reviews=next.reviews.filter(entry=>entry.id!==id);},"Review guide deleted."),"Delete guide");}
-    else if(action==="new-cheat")requireAdminAction("create a cheat sheet")&&cheatForm();
-    else if(action==="edit-cheat"){if(requireAdminAction("edit a cheat sheet")){const item=state.cheatSheets.find(entry=>entry.id===id);if(item)cheatForm(item);}}
-    else if(action==="delete-cheat"){if(requireAdminAction("delete a cheat sheet"))confirmModal("Delete this cheat sheet?","This permanently removes the shared reference.",()=>commitState(next=>{next.cheatSheets=next.cheatSheets.filter(entry=>entry.id!==id);},"Cheat sheet deleted."),"Delete cheat sheet");}
     else if(action==="timer-toggle")startTimer();
     else if(action==="timer-reset")setTimer(timerKind==="focus"?25*60:5*60,timerKind);
     else if(action==="open-focus"){switchView("focus");$("#timer-display")?.scrollIntoView({behavior:"smooth",block:"center"});}
@@ -1074,7 +1566,7 @@
     if(!$("#ai-chat-messages").childElementCount){
       appendAiMessage("assistant",aiPersona==="admin"
         ?"Hi! I’m Ai-Ai delas Alas, your administrator drafting helper. Send a request to prepare a reminder, schedule override, or reviewer note for review in the Admin Portal."
-        :"Hi! I’m BETTIE, your read-only CYB-202 study assistant. I can help with your timetable, reminders, subject know-hows, and Cyber Terminal references.");
+        :"Hi! I’m BETTIE, your read-only CYB-202 study assistant. I can help with your timetable, reminders, and subject know-hows.");
     }
     $("#ai-chat-input").focus();
   }
@@ -1343,6 +1835,8 @@
     }
   }
   async function initialize() {
+    if(window.cyb202ThreeReady)await window.cyb202ThreeReady;
+    initializeEyeBackground();
     loadThemePreference();
     try{
       currentSession=await Security.refreshSession();
@@ -1403,6 +1897,8 @@
   });
   document.addEventListener("click",event=>{
     if(!event.target.closest("#appearance-panel")&&!event.target.closest("#appearance-trigger"))closeAppearancePanel();
+    const memoryCard=event.target.closest("[data-memory-card]");
+    if(memoryCard){handleMemoryCard(memoryCard);return;}
     if(event.target.closest("[data-reminder-date-clear]")){
       reminderDateFilter="";
       if(activeView==="reminders")renderActiveView();

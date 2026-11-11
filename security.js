@@ -183,12 +183,12 @@
     const fail = message => { throw new Error(`Invalid class state: ${message}`); };
     if (!state || typeof state !== "object" || Array.isArray(state)) fail("expected an object.");
     if (state.schemaVersion !== 1) fail("unsupported schema version.");
-    const arrays = ["schedule", "subjects", "reminders", "reviews", "cheatSheets", "scheduleOverrides"];
+    const arrays = ["schedule", "subjects", "reminders", "reviews", "scheduleOverrides"];
     const allowedKeys = new Set(["schemaVersion", ...arrays, "emergencyBanner"]);
     if (Object.keys(state).some(key=>!allowedKeys.has(key))) fail("contains unsupported top-level fields.");
     for (const key of arrays) if (!Array.isArray(state[key])) fail(`${key} must be an array.`);
     if (!state.emergencyBanner || typeof state.emergencyBanner !== "object" || Array.isArray(state.emergencyBanner)) fail("emergencyBanner must be an object.");
-    const limits = { schedule:300, subjects:50, reminders:1000, reviews:100, cheatSheets:300, scheduleOverrides:1000 };
+    const limits = { schedule:300, subjects:50, reminders:1000, reviews:100, scheduleOverrides:1000 };
     for (const key of arrays) {
       if (state[key].length > limits[key]) fail(`${key} exceeds the item limit.`);
       const ids = new Set();

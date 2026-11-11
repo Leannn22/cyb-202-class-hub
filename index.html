@@ -16,9 +16,10 @@
   <link rel="preconnect" href="https://fonts.googleapis.com">
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
   <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&display=swap" rel="stylesheet">
-  <link rel="stylesheet" href="styles.css">
+  <link rel="stylesheet" href="styles.css?v=20261111.4">
 </head>
 <body class="min-h-screen">
+  <canvas id="bg-3d-canvas" aria-hidden="true"></canvas>
   <a class="skip-link" href="#main-content">Skip to content</a>
   <div id="emergency-banner" class="emergency-banner hidden" role="alert" aria-live="assertive" aria-atomic="true"></div>
 
@@ -43,7 +44,7 @@
         <button class="nav-tab" role="tab" aria-controls="view-root" aria-selected="false" data-view="schedule" id="tab-schedule"><i data-lucide="calendar-days" aria-hidden="true"></i>Full timetable</button>
         <button class="nav-tab" role="tab" aria-controls="view-root" aria-selected="false" data-view="reminders" id="tab-reminders"><i data-lucide="bell" aria-hidden="true"></i>Class reminders</button>
         <button class="nav-tab" role="tab" aria-controls="view-root" aria-selected="false" data-view="reviews" id="tab-reviews"><i data-lucide="book-open-check" aria-hidden="true"></i>Subject know-hows</button>
-        <button class="nav-tab" role="tab" aria-controls="view-root" aria-selected="false" data-view="terminal" id="tab-terminal"><i data-lucide="terminal-square" aria-hidden="true"></i>Cyber terminal</button>
+        <button class="nav-tab" role="tab" aria-controls="view-root" aria-selected="false" data-view="arcade" id="tab-arcade"><i data-lucide="gamepad-2" aria-hidden="true"></i>🎮 Arcade &amp; Gacha Lounge</button>
         <button class="nav-tab admin-tab" role="tab" aria-controls="view-root" aria-selected="false" data-view="admin" id="tab-admin"><i data-lucide="settings-2" aria-hidden="true"></i>Admin portal</button>
       </nav>
     </div>
@@ -66,7 +67,7 @@
     </section>
   </header>
 
-  <main id="main-content" class="mx-auto max-w-7xl px-4 py-6 md:px-8 md:py-9" tabindex="-1">
+  <main id="main-content" class="page-stage mx-auto max-w-7xl px-4 py-6 md:px-8 md:py-9" tabindex="-1">
     <div id="offline-notice" class="offline-notice hidden" role="status"></div>
     <div id="view-root" role="tabpanel" aria-labelledby="tab-focus" tabindex="0" aria-live="polite"></div>
   </main>
@@ -115,8 +116,13 @@
 
   <script src="https://unpkg.com/dompurify@3.2.6/dist/purify.min.js" defer></script>
   <script src="https://unpkg.com/lucide@latest" defer></script>
-  <script src="data.js" defer></script>
-  <script src="security.js" defer></script>
-  <script src="app.js" defer></script>
+  <script>
+    window.cyb202ThreeReady = import("https://unpkg.com/three@0.152.2/build/three.module.js")
+      .then(module => { window.THREE = module; })
+      .catch(error => { console.warn("Three.js could not be loaded; the 3D background is unavailable.", error); });
+  </script>
+  <script src="data.js?v=20261111.4" defer></script>
+  <script src="security.js?v=20261111.4" defer></script>
+  <script src="app.js?v=20261111.4" defer></script>
 </body>
 </html>

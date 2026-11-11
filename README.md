@@ -35,6 +35,8 @@ Shared, browser-based section hub with a Node.js API, SQLite class-state databas
 
 Without administrator accounts, the class hub remains readable but shared edits stay unavailable. Do not put database files, passphrases, or session secrets in source control.
 
+For AI assistance, set `GEMINI_API_KEY` in the server environment before starting the app. The key is used only by the backend and is never embedded in browser code.
+
 ## Production deployment''=''
 
 - Set `NODE_ENV=production`, `SESSION_SECRET` to at least 32 unpredictable bytes, `APP_ORIGIN` to the exact public origin without a trailing slash, `PORT` as required, and `DB_PATH` to a persistent private database path.
@@ -54,6 +56,8 @@ Serve the frontend and API from the same origin over HTTPS in production. The SH
 
 ## Shared state
 
-The server seeds the initial state from `data.js` on first startup. Changes to reminders, review guides, cheat sheets, emergency broadcasts, and date-specific schedule overrides are stored in SQLite and shared by every visitor. The timetable seed remains the baseline; temporary schedule changes can be reset without losing it. Exported snapshots use schema version 1 and are checked before server-side replacement.
+The server seeds the initial state from `data.js` on first startup. Changes to reminders, review guides, emergency broadcasts, and date-specific schedule overrides are stored in SQLite and shared by every visitor. The timetable seed remains the baseline; temporary schedule changes can be reset without losing it. Exported snapshots use schema version 1 and are checked before server-side replacement.
 
 Reminders support Exam, Quiz, Assignment, Project, and General categories. Authenticated administrators can use Ai-Ai's chat pills to complete a reminder draft and load it into the existing editable reminder form; nothing is published until the administrator reviews and submits that form.
+
+The Arcade & Gacha Lounge stores Study Coins and unlocked collection items in the current browser's local storage; progress is not shared between visitors.

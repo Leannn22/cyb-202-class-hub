@@ -40,6 +40,10 @@ db.transaction(() => {
   if (!row) throw new Error("The class state row is missing during category migration.");
   const state = JSON.parse(row.payload);
   let changed = false;
+  if (Object.hasOwn(state, "cheatSheets")) {
+    delete state.cheatSheets;
+    changed = true;
+  }
   for (const reminder of state.reminders) {
     if (!reminderCategories.includes(reminder.category)) {
       reminder.category = "General";
