@@ -16,7 +16,7 @@
   <link rel="preconnect" href="https://fonts.googleapis.com">
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
   <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&display=swap" rel="stylesheet">
-  <link rel="stylesheet" href="styles.css?v=20261112.3">
+  <link rel="stylesheet" href="styles.css?v=20261112.4">
 </head>
 <body class="min-h-screen">
   <canvas id="bg-3d-canvas" aria-hidden="true"></canvas>
@@ -34,7 +34,7 @@
           <div class="hidden lg:block text-right"><div id="clock-date" class="text-xs font-semibold"></div><div id="clock-time" class="text-[11px] text-zinc-400"></div></div>
           <span id="class-status" class="class-status"><i data-lucide="radio" aria-hidden="true"></i><span>Checking class</span></span>
           <span id="connection-status" class="connection-badge" role="status">Connecting…</span>
-          <button id="appearance-trigger" class="icon-button" type="button" aria-label="Appearance and color preferences" aria-haspopup="dialog" aria-expanded="false" title="Appearance & Color Preferences"><i data-lucide="palette" aria-hidden="true"></i></button>
+          <button id="appearance-trigger" class="icon-button" type="button" aria-label="Appearance and theme preferences" aria-haspopup="dialog" aria-expanded="false" title="Appearance & Theme Preferences"><i data-lucide="palette" aria-hidden="true"></i></button>
           <button id="search-trigger" class="icon-button" aria-label="Open spotlight search (Control or Command plus K)" title="Search · Ctrl K"><i data-lucide="search" aria-hidden="true"></i><kbd>⌘K</kbd></button>
           <button id="admin-trigger" class="role-badge" aria-haspopup="dialog"><i data-lucide="key-round" aria-hidden="true"></i><span id="role-label">Student View · Read-Only</span></button>
         </div>
@@ -50,13 +50,24 @@
     </div>
     <section id="appearance-panel" class="appearance-panel glass" role="dialog" aria-modal="false" aria-labelledby="appearance-title" hidden>
       <header class="appearance-header">
-        <div><h2 id="appearance-title">Appearance</h2><p>Unified monochrome palette</p></div>
+        <div><h2 id="appearance-title">Workspace appearance</h2><p>Personalize this browser only</p></div>
         <button id="appearance-close" class="icon-button" type="button" aria-label="Close appearance preferences"><i data-lucide="x" aria-hidden="true"></i></button>
       </header>
-      <div class="theme-options" role="group" aria-label="Active color palette">
-        <div class="theme-option theme-option-current" aria-current="true"><span class="theme-swatch silver"></span><span>Obsidian &amp; Silver</span></div>
+      <div class="theme-options" role="group" aria-label="Workspace themes">
+        <button class="theme-option" type="button" data-theme-choice="obsidian" aria-pressed="true"><span class="theme-swatch" data-theme-swatch="obsidian"></span><span>Monochrome Obsidian</span></button>
+        <button class="theme-option" type="button" data-theme-choice="midnight" aria-pressed="false"><span class="theme-swatch" data-theme-swatch="midnight"></span><span>Midnight Blue</span></button>
+        <button class="theme-option" type="button" data-theme-choice="emerald" aria-pressed="false"><span class="theme-swatch" data-theme-swatch="emerald"></span><span>Emerald Cyber</span></button>
+        <button class="theme-option" type="button" data-theme-choice="crimson" aria-pressed="false"><span class="theme-swatch" data-theme-swatch="crimson"></span><span>Crimson Velvet</span></button>
+        <button class="theme-option theme-option-wide" type="button" data-theme-choice="minimalist" aria-pressed="false"><span class="theme-swatch" data-theme-swatch="minimalist"></span><span>Pure Minimalist</span></button>
       </div>
-      <p id="appearance-status" class="sr-only" role="status" aria-live="polite">Obsidian and silver palette active.</p>
+      <div id="theme-mode-control" class="theme-mode-control" hidden>
+        <span>Minimalist appearance</span>
+        <button id="theme-mode-toggle" class="btn" type="button" aria-pressed="false">Switch to dark mode</button>
+      </div>
+      <label class="custom-color-label" for="custom-bg-picker">Custom accent
+        <input id="custom-bg-picker" type="color" value="#e4e4e7">
+      </label>
+      <p id="appearance-status" class="sr-only" role="status" aria-live="polite">Monochrome Obsidian theme selected.</p>
     </section>
   </header>
 
@@ -116,6 +127,6 @@
   </script>
   <script src="data.js?v=20261111.4" defer></script>
   <script src="security.js?v=20261111.4" defer></script>
-  <script src="app.js?v=20261112.3" defer></script>
+  <script src="app.js?v=20261112.4" defer></script>
 </body>
 </html>

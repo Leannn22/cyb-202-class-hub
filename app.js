@@ -8,6 +8,53 @@
   const esc = value => Security.escapeHTML(value);
   const icon = (name, cls = "h-4 w-4") => `<i data-lucide="${esc(name)}" class="${cls}" aria-hidden="true"></i>`;
   const dismissedBannerKey = "cyb202_dismissed_banner";
+  const themeStorageKey = "cyb202_theme_preference_v1";
+  const themePalettes = {
+    obsidian: {
+      label:"Monochrome Obsidian",mode:"dark",bg:"#050505",bgSecondary:"#09090b",
+      glass:"rgba(18,18,22,.65)",border:"rgba(255,255,255,.08)",
+      text:"#f4f4f5",muted:"#a1a1aa",accent:"#e4e4e7",accentText:"#e4e4e7",
+      glow:"rgba(255,255,255,.15)",surface:"rgba(255,255,255,.08)",
+      eyeFilter:"grayscale(1) contrast(1.08)"
+    },
+    midnight: {
+      label:"Midnight Blue",mode:"dark",bg:"#020617",bgSecondary:"#0f172a",
+      glass:"rgba(15,23,42,.68)",border:"rgba(125,211,252,.14)",
+      text:"#f1f5f9",muted:"#a1a1aa",accent:"#38bdf8",accentText:"#7dd3fc",
+      glow:"rgba(56,189,248,.22)",surface:"rgba(56,189,248,.1)",
+      eyeFilter:"grayscale(.55) hue-rotate(170deg) saturate(.72) contrast(1.08)"
+    },
+    emerald: {
+      label:"Emerald Cyber",mode:"dark",bg:"#050a08",bgSecondary:"#0c1411",
+      glass:"rgba(12,24,20,.68)",border:"rgba(110,231,183,.13)",
+      text:"#f0fdf4",muted:"#a1a1aa",accent:"#10b981",accentText:"#6ee7b7",
+      glow:"rgba(16,185,129,.22)",surface:"rgba(16,185,129,.1)",
+      eyeFilter:"grayscale(.55) hue-rotate(100deg) saturate(.65) contrast(1.08)"
+    },
+    crimson: {
+      label:"Crimson Velvet",mode:"dark",bg:"#0c0507",bgSecondary:"#160b0f",
+      glass:"rgba(24,12,16,.68)",border:"rgba(253,164,175,.14)",
+      text:"#fff1f2",muted:"#a1a1aa",accent:"#e11d48",accentText:"#fda4af",
+      glow:"rgba(244,63,94,.2)",surface:"rgba(244,63,94,.1)",
+      eyeFilter:"grayscale(.55) hue-rotate(300deg) saturate(.62) contrast(1.08)"
+    },
+    minimalist: {
+      light:{
+        label:"Pure Minimalist",mode:"light",bg:"#f4f4f5",bgSecondary:"#ffffff",
+        glass:"rgba(255,255,255,.82)",border:"rgba(24,24,27,.12)",
+        text:"#18181b",muted:"#52525b",accent:"#27272a",accentText:"#27272a",
+        glow:"rgba(24,24,27,.14)",surface:"rgba(24,24,27,.07)",
+        eyeFilter:"grayscale(1) contrast(.9)"
+      },
+      dark:{
+        label:"Pure Minimalist",mode:"dark",bg:"#09090b",bgSecondary:"#18181b",
+        glass:"rgba(24,24,27,.74)",border:"rgba(255,255,255,.1)",
+        text:"#fafafa",muted:"#a1a1aa",accent:"#fafafa",accentText:"#fafafa",
+        glow:"rgba(255,255,255,.14)",surface:"rgba(255,255,255,.07)",
+        eyeFilter:"grayscale(1) contrast(1.08)"
+      }
+    }
+  };
   const arcadeStorageKey = "cyb202_arcade_v1";
   const gachaCatalog = [
     {id:"avatar-stargazer",name:"Stargazer",type:"avatar",rarity:"Common",icon:"🌙"},
@@ -57,6 +104,10 @@
   let aiBusy = false;
   let aiPersona = "student";
   let aiRequestController = null;
+  let activeThemeName = "obsidian";
+  let activeCustomAccent = null;
+  let minimalistMode = "light";
+  let themeStorageWarningShown = false;
   let arcadeSave = loadArcadeSave();
   let memoryGame = null;
   let arcadeCleanup = null;
@@ -68,6 +119,121 @@
     element.textContent = message;
     $("#toast-mount").append(element);
     window.setTimeout(() => element.remove(), 4200);
+  }
+  function hexChannels(color) {
+    const match=/^#([\da-f]{2})([\da-f]{2})([\da-f]{2})$/i.exec(color);
+    return match?match.slice(1).map(channel=>parseInt(channel,16)):null;
+  }
+  function rgbaColor([red,green,blue],alpha) {
+    return `rgba(${red},${green},${blue},${alpha})`;
+  }
+  function tintColor(color,amount) {
+    const channels=hexChannels(color);
+    if(!channels)return color;
+    return `#${channels.map(channel=>Math.round(channel+(255-channel)*amount).toString(16).padStart(2,"0")).join("")}`;
+  }
+  function themePalette(name) {
+    if(name==="minimalist")return themePalettes.minimalist[minimalistMode];
+    return themePalettes[name];
+  }
+  function updateThemeControls() {
+    $$("[data-theme-choice]").forEach(button=>{
+      button.setAttribute("aria-pressed",String(button.dataset.themeChoice===activeThemeName));
+    });
+    const modeControl=$("#theme-mode-control");
+    const modeButton=$("#theme-mode-toggle");
+    const colorPicker=$("#custom-bg-picker");
+    const palette=themePalette(activeThemeName);
+    modeControl.hidden=activeThemeName!=="minimalist";
+    modeButton.setAttribute("aria-pressed",String(minimalistMode==="dark"));
+    modeButton.textContent=`Switch to ${minimalistMode==="dark"?"light":"dark"} mode`;
+    modeButton.setAttribute("aria-label",`Switch Pure Minimalist to ${minimalistMode==="dark"?"light":"dark"} mode`);
+    colorPicker.value=activeCustomAccent||palette.accent;
+  }
+  function applyTheme(themeName,customAccent=null,persist=true) {
+    if(!Object.prototype.hasOwnProperty.call(themePalettes,themeName)){
+      console.warn("Unknown workspace theme; using Monochrome Obsidian:",themeName);
+      themeName="obsidian";
+      customAccent=null;
+    }
+    if(customAccent!==null&&!hexChannels(customAccent)){
+      console.warn("Invalid custom accent color; using the selected theme accent.");
+      customAccent=null;
+    }
+    activeThemeName=themeName;
+    activeCustomAccent=customAccent;
+    const palette=themePalette(themeName);
+    const accent=customAccent||palette.accent;
+    const channels=hexChannels(accent);
+    const luminance=channels[0]*.2126+channels[1]*.7152+channels[2]*.0722;
+    const root=document.documentElement;
+    const variables={
+      "--bg-primary":palette.bg,
+      "--bg-secondary":palette.bgSecondary,
+      "--glass-bg":palette.glass,
+      "--glass-border":palette.border,
+      "--text-primary":palette.text,
+      "--text-muted":palette.muted,
+      "--page":palette.bg,
+      "--card":palette.glass,
+      "--card-strong":palette.bgSecondary,
+      "--line":palette.border,
+      "--ink":palette.text,
+      "--muted":palette.muted,
+      "--accent-primary":accent,
+      "--accent-glow":customAccent?rgbaColor(channels,.22):palette.glow,
+      "--accent-surface":customAccent?rgbaColor(channels,.11):palette.surface,
+      "--text-accent":customAccent?tintColor(accent,luminance<145?.58:.22):palette.accentText,
+      "--accent-contrast":luminance>165?"#09090b":"#ffffff",
+      "--eye-filter":palette.eyeFilter
+    };
+    for(const [property,value] of Object.entries(variables))root.style.setProperty(property,value);
+    root.dataset.theme=themeName;
+    root.dataset.themeMode=palette.mode;
+    root.style.colorScheme=palette.mode;
+    const themeColor=document.querySelector('meta[name="theme-color"]');
+    if(themeColor)themeColor.content=palette.bg;
+    updateThemeControls();
+    $("#appearance-status").textContent=`${palette.label}${palette.mode==="light"?" light":palette.mode==="dark"&&themeName==="minimalist"?" dark":""} theme selected${customAccent?" with a custom accent":""}.`;
+    if(persist){
+      try{
+        localStorage.setItem(themeStorageKey,JSON.stringify({
+          theme:activeThemeName,accent:activeCustomAccent,mode:minimalistMode
+        }));
+      }catch(error){
+        console.error("Workspace theme preference could not be saved locally:",error);
+        if(!themeStorageWarningShown){
+          toast("The theme changed for this visit, but browser storage prevented saving it.","warning");
+          themeStorageWarningShown=true;
+        }
+      }
+    }
+  }
+  function loadThemePreference() {
+    try{
+      const saved=localStorage.getItem(themeStorageKey);
+      if(!saved){applyTheme("obsidian",null,false);return;}
+      const preference=JSON.parse(saved);
+      if(!preference||typeof preference!=="object"||Array.isArray(preference)){
+        console.warn("Saved workspace theme preference is invalid; using Monochrome Obsidian.");
+        applyTheme("obsidian",null,false);
+        return;
+      }
+      if(!Object.prototype.hasOwnProperty.call(themePalettes,preference.theme)){
+        console.warn("Saved workspace theme is unknown; using Monochrome Obsidian.");
+        applyTheme("obsidian",null,false);
+        return;
+      }
+      if(preference.mode==="light"||preference.mode==="dark")minimalistMode=preference.mode;
+      const accent=preference.accent===null||preference.accent===undefined||hexChannels(preference.accent)
+        ?preference.accent||null:null;
+      if(preference.accent&&!accent)console.warn("Saved custom accent is invalid; using the preset accent.");
+      applyTheme(preference.theme,accent,false);
+    }catch(error){
+      console.error("Workspace theme preference could not be loaded locally:",error);
+      applyTheme("obsidian",null,false);
+      toast("Saved appearance preferences could not be read from browser storage.","warning");
+    }
   }
   function closeAppearancePanel() {
     $("#appearance-panel").hidden=true;
@@ -1937,6 +2103,7 @@
     }
   }
   async function initialize() {
+    loadThemePreference();
     if(window.cyb202ThreeReady)await window.cyb202ThreeReady;
     initializeEyeBackground();
     try{
@@ -1990,12 +2157,24 @@
     closeAppearancePanel();
     $("#appearance-trigger").focus();
   });
+  $("#theme-mode-toggle").addEventListener("click",()=>{
+    minimalistMode=minimalistMode==="dark"?"light":"dark";
+    applyTheme("minimalist",activeCustomAccent);
+  });
+  $("#custom-bg-picker").addEventListener("input",event=>{
+    applyTheme(activeThemeName,event.currentTarget.value,false);
+  });
+  $("#custom-bg-picker").addEventListener("change",event=>{
+    applyTheme(activeThemeName,event.currentTarget.value);
+  });
   $("#ai-chat-form").addEventListener("submit",event=>{
     event.preventDefault();
     sendAiMessage($("#ai-chat-input").value);
   });
   document.addEventListener("click",event=>{
     if(!event.target.closest("#appearance-panel")&&!event.target.closest("#appearance-trigger"))closeAppearancePanel();
+    const themeChoice=event.target.closest("[data-theme-choice]");
+    if(themeChoice){minimalistMode=themeChoice.dataset.themeChoice==="minimalist"?minimalistMode:"light";applyTheme(themeChoice.dataset.themeChoice);return;}
     const memoryCard=event.target.closest("[data-memory-card]");
     if(memoryCard){handleMemoryCard(memoryCard);return;}
     if(event.target.closest("[data-reminder-date-clear]")){
