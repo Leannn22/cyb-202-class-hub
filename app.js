@@ -14,44 +14,38 @@
       label:"Monochrome Obsidian",mode:"dark",bg:"#050505",bgSecondary:"#09090b",
       glass:"rgba(18,18,22,.65)",border:"rgba(255,255,255,.08)",
       text:"#f4f4f5",muted:"#a1a1aa",accent:"#e4e4e7",accentText:"#e4e4e7",
-      glow:"rgba(255,255,255,.15)",surface:"rgba(255,255,255,.08)",
-      eyeFilter:"grayscale(1) contrast(1.08)"
+      glow:"rgba(255,255,255,.15)",surface:"rgba(255,255,255,.08)"
     },
     midnight: {
       label:"Midnight Blue",mode:"dark",bg:"#020617",bgSecondary:"#0f172a",
       glass:"rgba(15,23,42,.68)",border:"rgba(125,211,252,.14)",
       text:"#f1f5f9",muted:"#a1a1aa",accent:"#38bdf8",accentText:"#7dd3fc",
-      glow:"rgba(56,189,248,.22)",surface:"rgba(56,189,248,.1)",
-      eyeFilter:"grayscale(.55) hue-rotate(170deg) saturate(.72) contrast(1.08)"
+      glow:"rgba(56,189,248,.22)",surface:"rgba(56,189,248,.1)"
     },
     emerald: {
       label:"Emerald Cyber",mode:"dark",bg:"#050a08",bgSecondary:"#0c1411",
       glass:"rgba(12,24,20,.68)",border:"rgba(110,231,183,.13)",
       text:"#f0fdf4",muted:"#a1a1aa",accent:"#10b981",accentText:"#6ee7b7",
-      glow:"rgba(16,185,129,.22)",surface:"rgba(16,185,129,.1)",
-      eyeFilter:"grayscale(.55) hue-rotate(100deg) saturate(.65) contrast(1.08)"
+      glow:"rgba(16,185,129,.22)",surface:"rgba(16,185,129,.1)"
     },
     crimson: {
       label:"Crimson Velvet",mode:"dark",bg:"#0c0507",bgSecondary:"#160b0f",
       glass:"rgba(24,12,16,.68)",border:"rgba(253,164,175,.14)",
       text:"#fff1f2",muted:"#a1a1aa",accent:"#e11d48",accentText:"#fda4af",
-      glow:"rgba(244,63,94,.2)",surface:"rgba(244,63,94,.1)",
-      eyeFilter:"grayscale(.55) hue-rotate(300deg) saturate(.62) contrast(1.08)"
+      glow:"rgba(244,63,94,.2)",surface:"rgba(244,63,94,.1)"
     },
     minimalist: {
       light:{
         label:"Pure Minimalist",mode:"light",bg:"#f4f4f5",bgSecondary:"#ffffff",
         glass:"rgba(255,255,255,.82)",border:"rgba(24,24,27,.12)",
         text:"#18181b",muted:"#52525b",accent:"#27272a",accentText:"#27272a",
-        glow:"rgba(24,24,27,.14)",surface:"rgba(24,24,27,.07)",
-        eyeFilter:"grayscale(1) contrast(.9)"
+        glow:"rgba(24,24,27,.14)",surface:"rgba(24,24,27,.07)"
       },
       dark:{
         label:"Pure Minimalist",mode:"dark",bg:"#09090b",bgSecondary:"#18181b",
         glass:"rgba(24,24,27,.74)",border:"rgba(255,255,255,.1)",
         text:"#fafafa",muted:"#a1a1aa",accent:"#fafafa",accentText:"#fafafa",
-        glow:"rgba(255,255,255,.14)",surface:"rgba(255,255,255,.07)",
-        eyeFilter:"grayscale(1) contrast(1.08)"
+        glow:"rgba(255,255,255,.14)",surface:"rgba(255,255,255,.07)"
       }
     }
   };
@@ -184,8 +178,7 @@
       "--accent-glow":customAccent?rgbaColor(channels,.22):palette.glow,
       "--accent-surface":customAccent?rgbaColor(channels,.11):palette.surface,
       "--text-accent":customAccent?tintColor(accent,luminance<145?.58:.22):palette.accentText,
-      "--accent-contrast":luminance>165?"#09090b":"#ffffff",
-      "--eye-filter":palette.eyeFilter
+      "--accent-contrast":luminance>165?"#09090b":"#ffffff"
     };
     for(const [property,value] of Object.entries(variables))root.style.setProperty(property,value);
     root.dataset.theme=themeName;
@@ -901,303 +894,250 @@
       buttons.forEach(button=>button.disabled=false);
     },1250);
   }
-  function makeScleraTexture() {
-    const canvas=document.createElement("canvas");
-    canvas.width=1024;canvas.height=512;
-    const context=canvas.getContext("2d");
-    const base=context.createLinearGradient(0,0,0,512);
-    base.addColorStop(0,"#111113");base.addColorStop(.48,"#202024");base.addColorStop(1,"#121214");
-    context.fillStyle=base;context.fillRect(0,0,1024,512);
-    const shading=context.createRadialGradient(512,256,80,512,256,520);
-    shading.addColorStop(0,"rgba(255,255,255,.06)");
-    shading.addColorStop(1,"rgba(0,0,0,.38)");
-    context.fillStyle=shading;context.fillRect(0,0,1024,512);
-    for(let i=0;i<130;i++){
-      const edge=Math.random()>.5;
-      const x=edge?(Math.random()>.5?0:1024):Math.random()*1024;
-      const y=edge?Math.random()*512:(Math.random()>.5?0:512);
-      const angle=Math.atan2(256-y,512-x)+(Math.random()-.5)*.8;
-      const length=40+Math.random()*150;
-      context.beginPath();context.moveTo(x,y);
-      context.bezierCurveTo(
-        x+Math.cos(angle+.4)*length*.3,y+Math.sin(angle+.4)*length*.3,
-        x+Math.cos(angle-.25)*length*.7,y+Math.sin(angle-.25)*length*.7,
-        x+Math.cos(angle)*length,y+Math.sin(angle)*length
-      );
-      context.strokeStyle=`rgba(${Math.random()>.5?"228,228,231":"161,161,170"},${.045+Math.random()*.12})`;
-      context.lineWidth=.6+Math.random()*1.3;context.stroke();
-      if(i%3===0){
-        const branchX=x+Math.cos(angle)*length*.52,branchY=y+Math.sin(angle)*length*.52;
-        context.beginPath();context.moveTo(branchX,branchY);
-        context.quadraticCurveTo(branchX+Math.cos(angle+1)*20,branchY+Math.sin(angle+1)*20,branchX+Math.cos(angle+1.35)*45,branchY+Math.sin(angle+1.35)*45);
-        context.strokeStyle="rgba(228,228,231,.13)";context.lineWidth=.7;context.stroke();
-      }
-    }
-    const texture=new THREE.CanvasTexture(canvas);
-    texture.colorSpace=THREE.SRGBColorSpace;
-    return texture;
-  }
-  function makeIrisTexture() {
-    const canvas=document.createElement("canvas");
-    canvas.width=1024;canvas.height=1024;
-    const context=canvas.getContext("2d");
-    const center=512;
-    const gradient=context.createRadialGradient(center,center,115,center,center,505);
-    gradient.addColorStop(0,"#020203");gradient.addColorStop(.25,"#101013");gradient.addColorStop(.32,"#252529");
-    gradient.addColorStop(.58,"#55555c");gradient.addColorStop(.78,"#242429");gradient.addColorStop(1,"#09090b");
-    context.fillStyle=gradient;context.fillRect(0,0,1024,1024);
-    const colors=["#e4e4e7","#a1a1aa","#71717a","#f4f4f5","#52525b","#d4d4d8"];
-    for(let i=0;i<900;i++){
-      const angle=Math.random()*Math.PI*2;
-      const inner=142+Math.random()*60;
-      const outer=340+Math.random()*150;
-      context.beginPath();
-      context.moveTo(center+Math.cos(angle)*inner,center+Math.sin(angle)*inner);
-      context.quadraticCurveTo(
-        center+Math.cos(angle+.025)*((inner+outer)/2),
-        center+Math.sin(angle+.025)*((inner+outer)/2),
-        center+Math.cos(angle+(Math.random()-.5)*.06)*outer,
-        center+Math.sin(angle+(Math.random()-.5)*.06)*outer
-      );
-      context.strokeStyle=colors[i%colors.length];
-      context.globalAlpha=.12+Math.random()*.52;
-      context.lineWidth=.6+Math.random()*2.2;context.stroke();
-    }
-    context.globalAlpha=1;
-    context.beginPath();context.arc(center,center,140,0,Math.PI*2);
-    context.fillStyle="#010208";context.fill();
-    context.beginPath();context.arc(center,center,149,0,Math.PI*2);
-    context.strokeStyle="rgba(244,244,245,.85)";context.lineWidth=7;context.stroke();
-    const texture=new THREE.CanvasTexture(canvas);
-    texture.colorSpace=THREE.SRGBColorSpace;
-    return texture;
-  }
-  function makeEyelidTexture(THREE) {
-    const canvas=document.createElement("canvas");
-    canvas.width=512;canvas.height=256;
-    const context=canvas.getContext("2d");
-    const skin=context.createLinearGradient(0,0,0,256);
-    skin.addColorStop(0,"#111113");
-    skin.addColorStop(.28,"#303035");
-    skin.addColorStop(.62,"#202024");
-    skin.addColorStop(1,"#0e0e10");
-    context.fillStyle=skin;context.fillRect(0,0,canvas.width,canvas.height);
-    for(let i=0;i<32;i++){
-      const x=Math.random()*canvas.width;
-      const y=Math.random()*canvas.height;
-      context.beginPath();
-      context.moveTo(x,y);
-      context.quadraticCurveTo(x+40,y+(Math.random()-.5)*18,x+90,y+(Math.random()-.5)*24);
-      context.strokeStyle=`rgba(244,244,245,${.012+Math.random()*.025})`;
-      context.lineWidth=.5+Math.random()*.8;
-      context.stroke();
-    }
-    for(let i=0;i<1800;i++){
-      const shade=Math.random()>.5?"255,255,255":"0,0,0";
-      context.fillStyle=`rgba(${shade},${.015+Math.random()*.025})`;
-      context.fillRect(Math.random()*canvas.width,Math.random()*canvas.height,1,1);
-    }
-    const texture=new THREE.CanvasTexture(canvas);
-    texture.colorSpace=THREE.SRGBColorSpace;
-    return texture;
-  }
-  function makeEyelidGeometry(THREE,upper) {
-    const radius=1.84;
-    const halfWidth=1.66;
-    const xSegments=96;
-    const arcSegments=16;
-    const positions=[];
-    const uvs=[];
-    const indices=[];
-    for(let xIndex=0;xIndex<=xSegments;xIndex++){
-      const u=xIndex/xSegments;
-      const x=(u*2-1)*halfWidth;
-      const normalized=x/halfWidth;
-      const inner=0.56+0.24*(1-normalized*normalized);
-      const outer=Math.sqrt(Math.max(0,radius*radius-x*x));
-      for(let arcIndex=0;arcIndex<=arcSegments;arcIndex++){
-        const v=arcIndex/arcSegments;
-        const yMagnitude=inner+(outer-inner)*v;
-        const y=(upper?1:-1)*yMagnitude;
-        const z=Math.sqrt(Math.max(0,radius*radius-x*x-y*y))+.025;
-        positions.push(x,y,z);
-        uvs.push(u,upper?1-v:v);
-      }
-    }
-    for(let xIndex=0;xIndex<xSegments;xIndex++){
-      for(let arcIndex=0;arcIndex<arcSegments;arcIndex++){
-        const a=xIndex*(arcSegments+1)+arcIndex;
-        const b=a+arcSegments+1;
-        indices.push(a,b,a+1,b,b+1,a+1);
-      }
-    }
-    const geometry=new THREE.BufferGeometry();
-    geometry.setAttribute("position",new THREE.Float32BufferAttribute(positions,3));
-    geometry.setAttribute("uv",new THREE.Float32BufferAttribute(uvs,2));
-    geometry.setIndex(indices);
-    geometry.computeVertexNormals();
-    return geometry;
-  }
-  function makeEyelidRidge(THREE,upper) {
-    const radius=1.84;
-    const halfWidth=1.58;
-    const points=[];
-    for(let index=0;index<=48;index++){
-      const x=(index/48*2-1)*halfWidth;
-      const normalized=x/1.66;
-      const inner=0.56+0.24*(1-normalized*normalized);
-      const y=(upper?1:-1)*(inner+.14);
-      const z=Math.sqrt(Math.max(0,radius*radius-x*x-y*y))+.045;
-      points.push(new THREE.Vector3(x,y,z));
-    }
-    const curve=new THREE.CatmullRomCurve3(points);
-    const material=new THREE.MeshStandardMaterial({
-      color:0x55555b,roughness:.72,transparent:true,opacity:.58
-    });
-    return new THREE.Mesh(new THREE.TubeGeometry(curve,64,.012,6,false),material);
-  }
-  function makeEyelashes(THREE,upper) {
-    const radius=1.84;
-    const positions=[];
-    for(let index=0;index<32;index++){
-      const x=-1.52+(index/31)*3.04+(Math.random()-.5)*.025;
-      const normalized=x/1.66;
-      const inner=0.56+0.24*(1-normalized*normalized);
-      const edgeY=(upper?1:-1)*inner;
-      const length=(upper ? .055 : .035)+Math.random()*.045;
-      const midX=x+(Math.random()-.5)*.035;
-      const endX=x+(Math.random()-.5)*.065;
-      const midY=edgeY+(upper?1:-1)*length*.55;
-      const endY=edgeY+(upper?1:-1)*length;
-      const edgeZ=Math.sqrt(Math.max(0,radius*radius-x*x-edgeY*edgeY))+.05;
-      const midZ=Math.sqrt(Math.max(0,radius*radius-midX*midX-midY*midY))+.05;
-      const endZ=Math.sqrt(Math.max(0,radius*radius-endX*endX-endY*endY))+.05;
-      positions.push(x,edgeY,edgeZ,midX,midY,midZ,midX,midY,midZ,endX,endY,endZ);
-    }
-    const geometry=new THREE.BufferGeometry();
-    geometry.setAttribute("position",new THREE.Float32BufferAttribute(positions,3));
-    const material=new THREE.LineBasicMaterial({color:0x09090b,transparent:true,opacity:.78});
-    return new THREE.LineSegments(geometry,material);
-  }
   function initializeEyeBackground() {
     const canvas=$("#bg-3d-canvas");
-    if(!canvas||!window.THREE)return;
+    if(!canvas)return;
     try{
-      const THREE=window.THREE;
-      const renderer=new THREE.WebGLRenderer({canvas,alpha:true,antialias:true});
-      renderer.setPixelRatio(Math.min(window.devicePixelRatio||1,2));
-      renderer.setClearColor(0x000000,0);
-      renderer.outputColorSpace=THREE.SRGBColorSpace;
-      renderer.toneMapping=THREE.ACESFilmicToneMapping;
-      const scene=new THREE.Scene();
-      const camera=new THREE.PerspectiveCamera(36,window.innerWidth/window.innerHeight,.1,100);
-      camera.position.z=8.5;
-      const eye=new THREE.Group();
-      scene.add(eye);
-      const sclera=new THREE.Mesh(
-        new THREE.SphereGeometry(1.7,128,96),
-        new THREE.MeshStandardMaterial({map:makeScleraTexture(),roughness:.32,metalness:0})
-      );
-      eye.add(sclera);
-      const iris=new THREE.Mesh(
-        new THREE.CircleGeometry(.65,160),
-        new THREE.MeshStandardMaterial({map:makeIrisTexture(),roughness:.38,metalness:.08})
-      );
-      iris.position.z=1.705;
-      eye.add(iris);
-      const cornea=new THREE.Mesh(
-        new THREE.SphereGeometry(1.75,128,96),
-        new THREE.MeshPhysicalMaterial({
-          color:0xffffff,metalness:0,roughness:.05,transmission:.9,thickness:.25,
-          clearcoat:1,clearcoatRoughness:.025,ior:1.45,transparent:true,opacity:.32
-        })
-      );
-      eye.add(cornea);
-      const lidTexture=makeEyelidTexture(THREE);
-      const lidMaterial=new THREE.MeshPhysicalMaterial({
-        map:lidTexture,bumpMap:lidTexture,bumpScale:.012,
-        color:0xffffff,roughness:.52,metalness:.06,
-        clearcoat:.14,clearcoatRoughness:.38,side:THREE.DoubleSide
-      });
-      function createEyelid(upper){
-        const lid=new THREE.Group();
-        const shell=new THREE.Mesh(makeEyelidGeometry(THREE,upper),lidMaterial);
-        shell.renderOrder=2;
-        lid.add(shell,makeEyelidRidge(THREE,upper),makeEyelashes(THREE,upper));
-        lid.position.z=.015;
-        eye.add(lid);
-        return lid;
-      }
-      const upperLid=createEyelid(true);
-      const lowerLid=createEyelid(false);
-      const ambient=new THREE.AmbientLight(0xe4e4e7,1.05);
-      scene.add(ambient);
-      const keyLight=new THREE.PointLight(0xffffff,24,18);
-      keyLight.position.set(-3,3,5);scene.add(keyLight);
-      const fillLight=new THREE.PointLight(0xd4d4d8,16,18);
-      fillLight.position.set(4,-2,4);scene.add(fillLight);
-      const rimLight=new THREE.PointLight(0xf4f4f5,20,18);
-      rimLight.position.set(0,4,-3);scene.add(rimLight);
-      const pointer={x:0,y:0};
-      const target={x:0,y:0};
-      let micro={x:0,y:0};
-      let nextTwitch=performance.now()+1800;
-      let blinkStartedAt=0;
-      let blinkDuration=170;
-      let blinkAmount=0;
+      const context=canvas.getContext("2d");
+      if(!context)throw new Error("A 2D canvas context is unavailable.");
+      const pointer={x:0,y:0,angle:0,distance:0,speed:0,hoveringInteractive:false,lastMove:0};
+      const gaze={x:0,y:0};
+      const motionPreference=window.matchMedia("(prefers-reduced-motion: reduce)");
+      let hasPointer=false;
+      let width=0,height=0,pixelRatio=1,eye={cx:0,cy:0,rx:0,ry:0};
+      let blinkStartedAt=0,blinkDuration=190,blinkAmount=0;
       let nextBlink=performance.now()+2200+Math.random()*2400;
-      function trackPointer(event){
-        target.x=(event.clientX/window.innerWidth)*2-1;
-        target.y=1-(event.clientY/window.innerHeight)*2;
+      let micro={x:0,y:0},microTarget={x:0,y:0},microUntil=0;
+      let nextSaccade=performance.now()+1800+Math.random()*2200;
+      const clamp=(value,min,max)=>Math.max(min,Math.min(max,value));
+      const cellWidth=8,cellHeight=8;
+      const ease=value=>value*value*(3-2*value);
+      function parseColor(color){
+        const hex=color.match(/^#([\da-f]{6})$/i);
+        if(hex)return hex[1].match(/[\da-f]{2}/gi).map(channel=>parseInt(channel,16));
+        const rgb=color.match(/rgba?\(([^)]+)\)/i);
+        if(rgb)return rgb[1].match(/[\d.]+/g).slice(0,3).map(Number);
+        return [228,228,231];
       }
+      function mixColor(base,accent,weight){
+        return base.map((channel,index)=>Math.round(channel*(1-weight)+accent[index]*weight));
+      }
+      function canvasColor(channels,alpha=1){
+        return `rgba(${channels.map(Math.round).join(",")},${alpha})`;
+      }
+
       function resize(){
-        const width=window.innerWidth,height=window.innerHeight;
-        camera.aspect=width/height;camera.updateProjectionMatrix();renderer.setSize(width,height,false);
+        width=window.innerWidth;height=window.innerHeight;
+        pixelRatio=Math.min(window.devicePixelRatio||1,2);
+        canvas.width=Math.round(width*pixelRatio);
+        canvas.height=Math.round(height*pixelRatio);
+        context.setTransform(pixelRatio,0,0,pixelRatio,0,0);
         const wide=width/height>1.15;
-        eye.scale.setScalar(wide ? 0.72 : 0.58);
-        eye.position.x=wide ? 2.05 : 0.45;
-        eye.position.y=wide ? -0.05 : 0.05;
+        eye.rx=Math.min(width*(wide?.31:.34),620);
+        eye.ry=eye.rx*.48;
+        eye.cx=width*(wide?.65:.52);
+        eye.cy=height*.5;
+        if(hasPointer)updatePointerGaze();
       }
+
+      function updatePointerGaze(){
+        const dx=pointer.x-eye.cx;
+        const dy=pointer.y-eye.cy;
+        pointer.angle=Math.atan2(dy,dx);
+        pointer.distance=Math.hypot(dx,dy);
+      }
+
+      function trackPointer(event){
+        const now=performance.now();
+        if(pointer.lastMove){
+          const elapsed=Math.max(12,now-pointer.lastMove);
+          pointer.speed=clamp(Math.hypot(event.clientX-pointer.x,event.clientY-pointer.y)/(elapsed*1.15),0,1);
+        }
+        pointer.x=event.clientX;pointer.y=event.clientY;
+        pointer.lastMove=now;
+        pointer.hoveringInteractive=event.target instanceof Element
+          &&!!event.target.closest("button,a,input,select,textarea,[role='button']");
+        nextSaccade=now+1500+Math.random()*2500;
+        hasPointer=true;
+        updatePointerGaze();
+      }
+
+      function releasePointer(){
+        hasPointer=false;
+        pointer.speed=0;
+        pointer.hoveringInteractive=false;
+        pointer.lastMove=performance.now();
+      }
+
       function animate(now){
         requestAnimationFrame(animate);
-        pointer.x+=(target.x-pointer.x)*.035;
-        pointer.y+=(target.y-pointer.y)*.035;
-        if(now>nextTwitch){
-          micro={x:(Math.random()-.5)*.055,y:(Math.random()-.5)*.06};
-          nextTwitch=now+1700+Math.random()*2600;
-        }else{
-          micro.x*=.9;micro.y*=.9;
+        context.clearRect(0,0,width,height);
+        const {cx,cy,rx,ry}=eye;
+        const motion=motionPreference.matches ? .24 : 1;
+        const root=document.documentElement;
+        const themeStyle=getComputedStyle(root);
+        const accent=themeStyle.getPropertyValue("--accent-primary").trim()||"#e4e4e7";
+        const accentRGB=parseColor(accent);
+        const lightTheme=root.dataset.themeMode==="light";
+        const scleraColor=canvasColor(mixColor([76,76,84],accentRGB,.22),lightTheme ? .82 : .96);
+        const lidColor=canvasColor(mixColor([82,82,91],accentRGB,.25),.96);
+        const lidHighlight=canvasColor(mixColor(lightTheme?[82,82,91]:[161,161,170],accentRGB,.3),1);
+        const irisColor=canvasColor(mixColor(lightTheme?[63,63,70]:[212,212,216],accentRGB,lightTheme ? .4 : .72),1);
+        const irisHighlight=canvasColor(mixColor([255,255,255],accentRGB,.32),1);
+        const limbalColor=canvasColor(mixColor([63,63,70],accentRGB,.2),1);
+        const glitchColor=canvasColor(accentRGB,1);
+        const idle=now-(pointer.lastMove||0);
+        if(!motionPreference.matches&&idle>1100&&now>=nextSaccade){
+          microTarget={x:(Math.random()-.5)*rx*.025,y:(Math.random()-.5)*ry*.035};
+          microUntil=now+90;
+          nextSaccade=now+1500+Math.random()*2500;
         }
-        eye.rotation.y+=(pointer.x*.28+micro.x-eye.rotation.y)*.055;
-        eye.rotation.x+=(-pointer.y*.2+micro.y-eye.rotation.x)*.055;
-        if(!blinkStartedAt&&now>=nextBlink){
+        if(now>microUntil)microTarget={x:0,y:0};
+        micro.x+=(microTarget.x-micro.x)*.45;
+        micro.y+=(microTarget.y-micro.y)*.45;
+        const maxGazeRadius=clamp(Math.min(rx,ry)*.16,35,45);
+        const gazeAngle=pointer.angle;
+        const pointerRadius=hasPointer?Math.min(pointer.distance,maxGazeRadius):0;
+        let targetX=Math.cos(gazeAngle)*pointerRadius+micro.x;
+        let targetY=Math.sin(gazeAngle)*pointerRadius+micro.y;
+        const targetRadius=Math.hypot(targetX,targetY);
+        if(targetRadius>maxGazeRadius){
+          const targetScale=maxGazeRadius/targetRadius;
+          targetX*=targetScale;
+          targetY*=targetScale;
+        }
+        gaze.x+=(targetX-gaze.x)*.15;
+        gaze.y+=(targetY-gaze.y)*.15;
+        pointer.speed*=.94;
+        const focusSquint=clamp((pointer.hoveringInteractive ? .09 : 0)+pointer.speed*.14,0,.2);
+        if(!motionPreference.matches&&!blinkStartedAt&&now>=nextBlink){
           blinkStartedAt=now;
-          blinkDuration=150+Math.random()*90;
+          blinkDuration=165+Math.random()*55;
         }
         if(blinkStartedAt){
           const progress=Math.min(1,(now-blinkStartedAt)/blinkDuration);
-          const eased=progress<.46
-            ?(progress/.46)**2*(3-2*(progress/.46))
-            :1-((progress-.46)/.54)**2*(3-2*((progress-.46)/.54));
-          blinkAmount=Math.max(0,Math.min(1,eased));
+          const closePortion=.38;
+          blinkAmount=progress<closePortion
+            ?ease(progress/closePortion)
+            :1-ease((progress-closePortion)/(1-closePortion));
           if(progress>=1){
             blinkAmount=0;
             blinkStartedAt=0;
-            nextBlink=now+(Math.random()<.12?240:2600+Math.random()*3300);
+            nextBlink=now+(Math.random()<.16?180+Math.random()*100:2600+Math.random()*3000);
           }
         }
-        const relaxed=Math.max(0,-pointer.y)*.1;
-        upperLid.position.y=-blinkAmount*.98-relaxed*.2;
-        lowerLid.position.y=blinkAmount*.98+relaxed*.08;
-        keyLight.position.x=-3+pointer.x*1.2;
-        fillLight.position.y=-2+pointer.y;
-        renderer.render(scene,camera);
+
+        const irisX=cx+gaze.x,irisY=cy+gaze.y;
+        const currentGazeAngle=Math.atan2(gaze.y,gaze.x);
+        const currentGazeMagnitude=clamp(Math.hypot(gaze.x,gaze.y)/maxGazeRadius,0,1);
+        const perspectiveScaleX=1-Math.abs(Math.cos(currentGazeAngle))*.14*currentGazeMagnitude;
+        const irisRadius=ry*.48;
+        const proximity=hasPointer?clamp(1-Math.hypot(pointer.x-irisX,pointer.y-irisY)/(irisRadius*2),0,1):0;
+        const constriction=Math.max(proximity*.65,pointer.speed*.8);
+        const dilation=.018*Math.sin(now*.0013)+.008*Math.sin(now*.00043);
+        const pupilRadius=irisRadius*clamp(.32+dilation-constriction*.055,.23,.37);
+        const verticalGaze=clamp(gaze.y/ry,-1,1);
+        const tick=Math.floor(now/110*motion);
+        const columns=Math.ceil(rx*2/cellWidth);
+        const rows=Math.ceil((ry*2+cellHeight*4)/cellHeight);
+        context.font='bold 8px "Courier New", monospace';
+        context.textAlign="center";context.textBaseline="middle";
+        for(let row=0;row<rows;row++){
+          const y=cy-ry-cellHeight*2+(row+.5)*cellHeight;
+          const normalizedY=(y-cy)/ry;
+          for(let col=0;col<columns;col++){
+            const x=cx-rx+(col+.5)*cellWidth;
+            const normalizedX=(x-cx)/rx;
+            const horizontal=Math.max(0,1-normalizedX*normalizedX);
+            if(!horizontal)continue;
+            const boundary=Math.pow(horizontal,.72);
+            const random=Math.sin((col+1)*127.1+19.19)*43758.5453;
+            const jitter=(random-Math.floor(random)-.5)*.04;
+            const upperBoundary=clamp(
+              boundary+Math.sin(normalizedX*11.3)*.018+Math.sin(normalizedX*29+2)*.012+jitter,0,1.05
+            );
+            const lowerBoundary=clamp(
+              boundary+Math.sin(normalizedX*10.1+1.2)*.015+Math.sin(normalizedX*32.5-1.6)*.01-jitter*.72,0,1.05
+            );
+            const upperEdge=-upperBoundary*(1-blinkAmount)+verticalGaze*.075+focusSquint*upperBoundary*.2;
+            const lowerEdge=lowerBoundary*(1-blinkAmount)+verticalGaze*.025-focusSquint*lowerBoundary*.14;
+            const upperLash=normalizedY<upperEdge&&normalizedY>upperEdge-.13&&Math.abs(normalizedX)<.9;
+            const lowerLash=normalizedY>lowerEdge&&normalizedY<lowerEdge+.1&&Math.abs(normalizedX)<.9;
+            const insideEye=normalizedY>=-upperBoundary&&normalizedY<=lowerBoundary;
+            if(!insideEye&&!upperLash&&!lowerLash)continue;
+            const upperLid=normalizedY<upperEdge;
+            const lowerLid=normalizedY>lowerEdge;
+            const inLid=upperLid||lowerLid;
+            const lidDepth=upperLid?upperEdge-normalizedY:lowerEdge<normalizedY?normalizedY-lowerEdge:0;
+            const irisDistance=Math.hypot((x-irisX)/perspectiveScaleX,y-irisY);
+            const value=(row*31+col*17+tick)&1;
+            const localGlitch=hasPointer?clamp(1-Math.hypot(x-pointer.x,y-pointer.y)/(rx*.34),0,1):0;
+            const scrambled=localGlitch>.1&&Math.random()<localGlitch*.35;
+            const digit=scrambled?(Math.random()<.5?"0":"1"):String(value);
+            const tearDuct=normalizedX<-.78&&normalizedX>-.99&&Math.abs(normalizedY)<.1;
+
+            if(upperLash||lowerLash){
+              if((col+row)%3===0)continue;
+              context.font='bold 8px "Courier New", monospace';
+              context.fillStyle=scrambled?glitchColor:lidHighlight;
+              context.fillText(upperLash?"1":"0",x,y);
+              continue;
+            }
+
+            if(tearDuct&&!inLid){
+              if((row+col+tick)%3!==0){
+                context.font='bold 8px "Courier New", monospace';
+                context.fillStyle=scrambled?glitchColor:((row+col)%2?lidHighlight:irisHighlight);
+                context.fillText(digit,x,y);
+              }
+              continue;
+            }
+
+            if(!inLid&&irisDistance<pupilRadius){
+              const glintX=irisX+pupilRadius*.54*perspectiveScaleX+gaze.x*.025;
+              const glintY=irisY-pupilRadius*.54+gaze.y*.025;
+              const glint=Math.hypot((x-glintX)/perspectiveScaleX,y-glintY)<cellWidth*1.35&&(row+col)%3!==0;
+              if(glint){
+                context.font='bold 8px "Courier New", monospace';
+                context.fillStyle=irisHighlight;
+                context.fillText("1",x,y);
+              }else{
+                context.fillStyle="#050505";
+                context.fillRect(x-cellWidth*.5,y-cellHeight*.5,cellWidth,cellHeight);
+              }
+              continue;
+            }
+
+            if(!inLid&&irisDistance<irisRadius+cellHeight*.65){
+              const limbal=irisDistance>irisRadius-cellHeight*1.25;
+              const collarette=Math.abs(irisDistance-pupilRadius*1.58)<cellHeight*.8;
+              const angle=Math.atan2(y-irisY,(x-irisX)/perspectiveScaleX);
+              const cryptWave=Math.sin(angle*26+irisDistance*.19+tick*.008);
+              const crypt=cryptWave>-.45||collarette||limbal;
+              if(!crypt&&(row+col+tick)%3===0)continue;
+              context.font=collarette||limbal?'bold 8px "Courier New", monospace':'8px "Courier New", monospace';
+              context.fillStyle=scrambled?glitchColor:limbal?limbalColor:collarette?irisHighlight:cryptWave>.38?irisHighlight:irisColor;
+              context.fillText(digit,x,y);
+              continue;
+            }
+
+            const contour=inLid&&lidDepth<.055;
+            const crease=inLid&&(Math.abs(lidDepth-.11)<.035||Math.abs(lidDepth-.2)<.04);
+            const closedSeam=blinkAmount>.94&&Math.abs(normalizedY)<.07;
+            const density=(row*19+col*23+tick)%5;
+            if(!contour&&!crease&&!closedSeam&&density>1)continue;
+            context.font=contour||closedSeam?'bold 8px "Courier New", monospace':'8px "Courier New", monospace';
+            context.fillStyle=scrambled?glitchColor:closedSeam?lidHighlight:contour||crease?lidColor:scleraColor;
+            context.fillText(closedSeam?digit:String(value),x,y);
+          }
+        }
       }
       window.addEventListener("mousemove",trackPointer,{passive:true});
+      window.addEventListener("mouseleave",releasePointer,{passive:true});
       window.addEventListener("resize",resize);
       resize();requestAnimationFrame(animate);
     }catch(error){
-      console.warn("The 3D eye background could not be initialized:",error);
+      console.warn("The binary eye background could not be initialized:",error);
     }
   }
   function renderAdmin() {
@@ -2104,7 +2044,6 @@
   }
   async function initialize() {
     loadThemePreference();
-    if(window.cyb202ThreeReady)await window.cyb202ThreeReady;
     initializeEyeBackground();
     try{
       currentSession=await Security.refreshSession();

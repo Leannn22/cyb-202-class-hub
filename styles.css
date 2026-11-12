@@ -12,7 +12,6 @@
   --accent-contrast: #09090b;
   --accent-surface: rgba(255, 255, 255, 0.08);
   --text-accent: var(--accent-silver);
-  --eye-filter: grayscale(1) contrast(1.08);
   --page: var(--bg-primary);
   --card: var(--glass-bg);
   --card-strong: var(--bg-secondary);
@@ -234,14 +233,18 @@ select.field option { color: var(--text-primary); background: var(--bg-secondary
 
 body { isolation: isolate; }
 #bg-3d-canvas {
+  display: block;
   position: fixed;
   inset: 0;
   z-index: -1;
   width: 100vw;
   height: 100vh;
   pointer-events: none;
-  opacity: .38;
-  filter: var(--eye-filter);
+  opacity: .72;
+  filter: contrast(1.18) saturate(1.12);
+}
+@media (prefers-reduced-motion: reduce) {
+  #bg-3d-canvas { opacity: .3; }
 }
 .topbar, .glass, .panel-card, .modal-card, .palette-card, .appearance-panel, .ai-chat-panel {
   background: var(--glass-bg);
