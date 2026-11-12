@@ -40,6 +40,21 @@ db.transaction(() => {
   if (!row) throw new Error("The class state row is missing during category migration.");
   const state = JSON.parse(row.payload);
   let changed = false;
+  const algorithmSchedule = defaultState.schedule.filter(
+    (meeting) => meeting.subject === "6DASALGO",
+  );
+  const savedAlgorithmSchedule = state.schedule.filter(
+    (meeting) => meeting.subject === "6DASALGO",
+  );
+  if (
+    JSON.stringify(savedAlgorithmSchedule) !== JSON.stringify(algorithmSchedule)
+  ) {
+    state.schedule = state.schedule.filter(
+      (meeting) => meeting.subject !== "6DASALGO",
+    );
+    state.schedule.push(...algorithmSchedule);
+    changed = true;
+  }
   if (Object.hasOwn(state, "cheatSheets")) {
     delete state.cheatSheets;
     changed = true;
